@@ -1,4 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router';
+import { isPaymentPlugin, type PaymentPlugin } from './payment';
 import type { IPlugin, NavItem, PluginContext } from './types';
 
 interface RegisteredPlugin {
@@ -38,6 +39,15 @@ export class PluginRegistry {
 
   get routes(): RouteRecordRaw[] {
     return this.all().flatMap((plugin) => plugin.routes ?? []);
+  }
+
+  get paymentPlugins(): PaymentPlugin[] {
+    return this.all().filter(isPaymentPlugin);
+  }
+
+  /** The payment plugin handling this OXID payment id, if one is installed. */
+  paymentPluginFor(paymentId: string): PaymentPlugin | null {
+    return this.paymentPlugins.find((plugin) => plugin.paymentId === paymentId) ?? null;
   }
 
   get navItems(): NavItem[] {

@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router';
 import type { GraphqlClient } from '../api/GraphqlClient';
 import type { AuthService } from '../auth/AuthService';
 import type { EventBus } from '../events/EventBus';
+import type { PluginRegistry } from './PluginRegistry';
 
 export interface NavItem {
   /** i18n key, resolved by the host's vue-i18n instance. */
@@ -16,6 +17,8 @@ export interface PluginContext {
   client: GraphqlClient;
   auth: AuthService;
   events: EventBus;
+  /** The host's registry — lets a plugin find its peers (e.g. checkout → payment plugins). */
+  registry: PluginRegistry;
   /** defaultConfig merged with the host's overrides for this plugin. */
   config: Record<string, unknown>;
 }
