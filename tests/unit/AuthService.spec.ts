@@ -79,6 +79,16 @@ describe('AuthService', () => {
     expect(emitted).toBe(true);
   });
 
+  it('adoptToken replaces the stored token (post password-change)', async () => {
+    const fresh = fakeJwt({ exp: expiresIn(3600), useranonymous: false });
+    const { auth } = make('unused');
+
+    auth.adoptToken(fresh);
+
+    expect(auth.token()).toBe(fresh);
+    expect(auth.isAuthenticated()).toBe(true);
+  });
+
   it('checkExpiry emits session-expired for an expired customer token only', () => {
     const { auth, storage, events } = make('unused');
     let expired = 0;

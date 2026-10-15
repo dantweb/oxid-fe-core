@@ -76,6 +76,15 @@ export class AuthService {
     }
   }
 
+  /**
+   * Adopts a token the API handed back outside of login — e.g.
+   * customerPasswordChange answers a fresh accessToken because the old
+   * session token dies with the old password.
+   */
+  adoptToken(token: string): void {
+    this.storage.set(token);
+  }
+
   logout(): void {
     this.storage.clear();
     this.events.emit(CoreEvents.AuthLogout);
