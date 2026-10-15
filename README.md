@@ -16,18 +16,18 @@ API (`graphql-base` + `graphql-storefront`) instead of REST.
 | `createAuthStore`                    | Pinia mirror of the auth state for templates                                                              |
 | `addressSchema` (zod), `formatPrice` | shared validation and formatting                                                                          |
 
-## Development (inside the OXID Docker SDK)
+## Development
 
-The SDK ships an `oxid-fe-core` service (see `services/oxid-fe-core.yml` in the SDK root):
+oxid-fe-core is a **library**, not a service: it has no container of its own. It is built with
+Node ≥ 22 (`npm ci && npm run build`) and consumed by `oxid-fe-user`, whose SDK container mounts
+this checkout at `/oxid-fe-core` (the app's `file:../oxid-fe-core` dependency). To work on both
+inside the OXID Docker SDK use the `oxid-fe-user` service:
 
 ```bash
-make file=services/oxid-fe-core.yml addservice   # once
+make file=services/oxid-fe-user.yml addservice   # once
 make up
-docker compose exec oxid-fe-core npm ci
-docker compose exec oxid-fe-core npm test
+docker compose exec oxid-fe-user sh -c 'cd /oxid-fe-core && npm ci && npm test'
 ```
-
-Host-side: Node ≥ 22, then `npm ci`.
 
 ## Commands
 
