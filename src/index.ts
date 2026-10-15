@@ -34,3 +34,6 @@ export type { IPlugin, NavItem, PluginContext } from './plugins/types';
 export { createAuthStore } from './stores/createAuthStore';
 export { addressSchema, type AddressInput } from './validation/address';
 export { formatPrice } from './utils/price';
+export { applyTheme, clearTheme } from './theme/applyTheme';
+export { loadTheme, THEME_STYLESHEET_ID, type LoadThemeOptions } from './theme/loadTheme';
+export { themeConfigSchema, type ResolvedTheme, type ThemeConfig } from './theme/types';
