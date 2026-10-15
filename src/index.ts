@@ -26,6 +26,8 @@ export {
   type PaymentPlugin,
   type PaymentStartOptions,
   type ProviderCheckoutApi,
+  type ProviderCheckoutOptions,
+  type ReturnParams,
 } from './plugins/payment';
 export { PluginRegistry } from './plugins/PluginRegistry';
 export type { IPlugin, NavItem, PluginContext } from './plugins/types';

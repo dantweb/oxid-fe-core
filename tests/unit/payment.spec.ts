@@ -60,6 +60,37 @@ describe('createProviderCheckoutApi', () => {
     expect(variables).toMatchObject({ cancelUrl: 'c', uiMode: 'embedded' });
   });
 
+  it('forwards mapped return-URL params as extra return arguments', async () => {
+    const client = clientAnswering({ stripeCheckoutReturn: { status: 'committed' } });
+    const api = createProviderCheckoutApi(client, 'stripe', {
+      returnArguments: { session_id: 'checkoutSessionId' },
+    });
+
+    await api.checkoutReturn('c1', 't1', { session_id: 'cs_test_1', contract_id: 'ignored' });
+
+    const [document, variables] = (client.execute as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(document).toContain('$checkoutSessionId: String');
+    expect(document).toContain('checkoutSessionId: $checkoutSessionId');
+    expect(variables).toEqual({
+      contractId: 'c1',
+      contractToken: 't1',
+      checkoutSessionId: 'cs_test_1',
+    });
+  });
+
+  it('omits mapped arguments the return URL did not carry', async () => {
+    const client = clientAnswering({ stripeCheckoutReturn: { status: 'pending' } });
+    const api = createProviderCheckoutApi(client, 'stripe', {
+      returnArguments: { session_id: 'checkoutSessionId' },
+    });
+
+    await api.checkoutReturn('c1', 't1', {});
+
+    const [document, variables] = (client.execute as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(document).not.toContain('checkoutSessionId');
+    expect(variables).toEqual({ contractId: 'c1', contractToken: 't1' });
+  });
+
   it('reads return and cancel results from the prefixed fields', async () => {
     const client = clientAnswering({
       mollieCheckoutReturn: { status: 'committed', orderId: 'o1', contractState: 'fulfilled' },

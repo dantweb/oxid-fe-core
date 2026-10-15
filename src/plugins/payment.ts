@@ -29,6 +29,9 @@ export interface CheckoutCancelResult {
   contractState: string;
 }
 
+/** Query parameters the PSP appended to the return URL (e.g. Stripe's `session_id`). */
+export type ReturnParams = Record<string, string>;
+
 export interface PaymentStartOptions {
   returnUrl: string;
   cancelUrl?: string;
@@ -41,7 +44,11 @@ export interface PaymentStartOptions {
 export interface PaymentPlugin extends IPlugin {
   paymentId: string;
   start(basketId: string, options: PaymentStartOptions): Promise<CheckoutStartResult>;
-  checkoutReturn(contractId: string, contractToken: string): Promise<CheckoutReturnResult>;
+  checkoutReturn(
+    contractId: string,
+    contractToken: string,
+    returnParams?: ReturnParams,
+  ): Promise<CheckoutReturnResult>;
   cancel(contractId: string, contractToken: string): Promise<CheckoutCancelResult>;
 }
 
@@ -63,8 +70,21 @@ const RESULT_FIELDS = {
 
 export interface ProviderCheckoutApi {
   start(basketId: string, options: PaymentStartOptions): Promise<CheckoutStartResult>;
-  checkoutReturn(contractId: string, contractToken: string): Promise<CheckoutReturnResult>;
+  checkoutReturn(
+    contractId: string,
+    contractToken: string,
+    returnParams?: ReturnParams,
+  ): Promise<CheckoutReturnResult>;
   cancel(contractId: string, contractToken: string): Promise<CheckoutCancelResult>;
+}
+
+export interface ProviderCheckoutOptions {
+  /**
+   * Return-URL query parameter → name of the `<provider>CheckoutReturn` argument
+   * (String). Stripe: `{ session_id: 'checkoutSessionId' }` — its resolver needs the
+   * session to settle the payment when no webhook committed the order first.
+   */
+  returnArguments?: Record<string, string>;
 }
 
 /**
@@ -75,7 +95,9 @@ export interface ProviderCheckoutApi {
 export function createProviderCheckoutApi(
   client: GraphqlClient,
   prefix: string,
+  options: ProviderCheckoutOptions = {},
 ): ProviderCheckoutApi {
+  const returnArguments = options.returnArguments ?? {};
   const startField = `${prefix}CheckoutStart`;
   const returnField = `${prefix}CheckoutReturn`;
   const cancelField = `${prefix}CheckoutCancel`;
@@ -95,14 +117,18 @@ export function createProviderCheckoutApi(
       return data[startField];
     },
 
-    async checkoutReturn(contractId, contractToken) {
-      const document = `mutation checkoutReturn($contractId: String!, $contractToken: String!) {
-        ${returnField}(contractId: $contractId, contractToken: $contractToken) { ${RESULT_FIELDS.return} }
+    async checkoutReturn(contractId, contractToken, returnParams = {}) {
+      const extra = Object.entries(returnArguments).filter(([param]) => returnParams[param]);
+      const declarations = extra.map(([, argument]) => `, $${argument}: String`).join('');
+      const passes = extra.map(([, argument]) => `, ${argument}: $${argument}`).join('');
+      const document = `mutation checkoutReturn($contractId: String!, $contractToken: String!${declarations}) {
+        ${returnField}(contractId: $contractId, contractToken: $contractToken${passes}) { ${RESULT_FIELDS.return} }
       }`;
-      const data = await client.execute<Record<string, CheckoutReturnResult>>(document, {
-        contractId,
-        contractToken,
-      });
+      const variables: Record<string, unknown> = { contractId, contractToken };
+      for (const [param, argument] of extra) {
+        variables[argument] = returnParams[param];
+      }
+      const data = await client.execute<Record<string, CheckoutReturnResult>>(document, variables);
       return data[returnField];
     },
 
