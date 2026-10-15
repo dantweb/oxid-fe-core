@@ -6,15 +6,16 @@ API (`graphql-base` + `graphql-storefront`) instead of REST.
 
 ## What it provides
 
-| Module                               | Job                                                                                                       |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `GraphqlClient` / `GraphqlError`     | typed transport to `<shop-url>/graphql/`; maps `extensions.errorCode` to typed errors                     |
-| `AuthService` / `TokenStorage` / jwt | graphql-base token lifecycle: login, **anonymous guest tokens**, expiry, logout (refresh tokens: planned) |
-| `PluginRegistry` / `IPlugin`         | plugins contribute routes, nav items, i18n messages, config and a `setup()` — the host applies them       |
-| `EventBus` / `CoreEvents`            | decoupled host ↔ plugin communication (`auth:login`, `auth:logout`, `auth:session-expired`)               |
-| `createAuthGuard`                    | vue-router guard for `meta.requiresAuth` routes                                                           |
-| `createAuthStore`                    | Pinia mirror of the auth state for templates                                                              |
-| `addressSchema` (zod), `formatPrice` | shared validation and formatting                                                                          |
+| Module                                                            | Job                                                                                                                                       |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `GraphqlClient` / `GraphqlError`                                  | typed transport to `<shop-url>/graphql/`; maps `extensions.errorCode` to typed errors                                                     |
+| `AuthService` / `TokenStorage` / jwt                              | graphql-base token lifecycle: login, **anonymous guest tokens**, expiry, logout (refresh tokens: planned)                                 |
+| `PluginRegistry` / `IPlugin`                                      | plugins contribute routes, nav items, i18n messages, config and a `setup()` — the host applies them                                       |
+| `EventBus` / `CoreEvents`                                         | decoupled host ↔ plugin communication (`auth:login`, `auth:logout`, `auth:session-expired`)                                               |
+| `createAuthGuard`                                                 | vue-router guard for `meta.requiresAuth` routes                                                                                           |
+| `createAuthStore`                                                 | Pinia mirror of the auth state for templates                                                                                              |
+| `styles/variables.css`, `applyTheme` / `clearTheme` / `loadTheme` | the `--oxfe-*` design-token contract and theme loading (parent chain, fallback to the default theme) — see oxid-fe-user `docs/theming.md` |
+| `addressSchema` (zod), `formatPrice`                              | shared validation and formatting                                                                                                          |
 
 ## Development
 
