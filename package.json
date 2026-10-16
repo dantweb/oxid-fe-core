@@ -1,6 +1,6 @@
 {
   "name": "@dantweb/oxid-fe-core",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Shared Vue 3 library and TypeScript SDK for OXID headless frontends: GraphQL client, JWT auth, plugin system, guards, stores, validation.",
   "license": "BUSL-1.1",
   "type": "module",

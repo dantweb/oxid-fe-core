@@ -1,5 +1,5 @@
 import type { GraphqlClient } from '../api/GraphqlClient';
-import type { IPlugin } from './types';
+import type { IPlugin, ViewLoader } from './types';
 
 /**
  * payment-base headless checkout contract (per provider module):
@@ -40,6 +40,31 @@ export interface PaymentStartOptions {
   providerOptions?: Record<string, unknown>;
 }
 
+/**
+ * Inline ("iframe mode") payments: a plugin may supply a component that renders the provider's own
+ * payment UI inside the checkout page, like the standard checkout's iframe mode. The checkout
+ * mounts it once a method is chosen and the terms are confirmed.
+ *
+ * Props the checkout passes: {@link InlinePaymentProps}. Events the component emits:
+ *  - `attempt(InlinePaymentAttempt)` — a payment attempt exists (the checkout remembers it: the
+ *    shopper may leave for the provider and come back to the return route)
+ *  - `settled()` — the provider finished inside the page; the checkout continues to the return route
+ *  - `failed(message)` — show the message, the shopper can retry
+ *  - `cancelled()` — the shopper backed out; the attempt was retired
+ */
+export interface InlinePaymentProps {
+  basketId: string;
+  /** the frontend return route for this provider (absolute URL) */
+  returnUrl: string;
+  cancelUrl: string;
+}
+
+export interface InlinePaymentAttempt {
+  contractId: string;
+  contractToken: string;
+  orderNumber: string | null;
+}
+
 /** A plugin that handles one contract-first OXID payment id. */
 export interface PaymentPlugin extends IPlugin {
   paymentId: string;
@@ -50,6 +75,11 @@ export interface PaymentPlugin extends IPlugin {
     returnParams?: ReturnParams,
   ): Promise<CheckoutReturnResult>;
   cancel(contractId: string, contractToken: string): Promise<CheckoutCancelResult>;
+  /**
+   * The inline (iframe-mode) component, or null when this instance uses the hosted page
+   * (plugin config `mode: redirect`) or the provider has no embeddable UI.
+   */
+  inlineComponent?(): ViewLoader | null;
 }
 
 export function isPaymentPlugin(plugin: IPlugin): plugin is PaymentPlugin {

@@ -23,6 +23,8 @@ export {
   type CheckoutCancelResult,
   type CheckoutReturnResult,
   type CheckoutStartResult,
+  type InlinePaymentAttempt,
+  type InlinePaymentProps,
   type PaymentPlugin,
   type PaymentStartOptions,
   type ProviderCheckoutApi,
@@ -37,3 +39,4 @@ export { formatPrice } from './utils/price';
 export { applyTheme, clearTheme } from './theme/applyTheme';
 export { loadTheme, THEME_STYLESHEET_ID, type LoadThemeOptions } from './theme/loadTheme';
 export { themeConfigSchema, type ResolvedTheme, type ThemeConfig } from './theme/types';
+export { loadScriptOnce } from './utils/script';
