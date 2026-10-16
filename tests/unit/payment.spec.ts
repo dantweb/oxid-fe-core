@@ -91,6 +91,26 @@ describe('createProviderCheckoutApi', () => {
     expect(variables).toEqual({ contractId: 'c1', contractToken: 't1' });
   });
 
+  it('forwards mapped provider options as extra start arguments', async () => {
+    const client = clientAnswering({ mollieCheckoutStart: { contractId: 'c1' } });
+    const api = createProviderCheckoutApi(client, 'mollie', {
+      startArguments: { cardToken: 'cardToken', method: 'method' },
+    });
+
+    await api.start('b1', {
+      returnUrl: 'https://app/return',
+      uiMode: 'embedded',
+      providerOptions: { cardToken: 'tkn_1', ignored: 'x' },
+    });
+
+    const [document, variables] = (client.execute as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(document).toContain('$cardToken: String');
+    expect(document).toContain('cardToken: $cardToken');
+    expect(document).not.toContain('$method');
+    expect(variables).toMatchObject({ cardToken: 'tkn_1' });
+    expect(variables).not.toHaveProperty('ignored');
+  });
+
   it('reads return and cancel results from the prefixed fields', async () => {
     const client = clientAnswering({
       mollieCheckoutReturn: { status: 'committed', orderId: 'o1', contractState: 'fulfilled' },

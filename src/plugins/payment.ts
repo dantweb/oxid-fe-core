@@ -115,6 +115,11 @@ export interface ProviderCheckoutOptions {
    * session to settle the payment when no webhook committed the order first.
    */
   returnArguments?: Record<string, string>;
+  /**
+   * {@link PaymentStartOptions.providerOptions} key → name of the `<provider>CheckoutStart`
+   * argument (String). Mollie: `{ method: 'method', cardToken: 'cardToken' }`.
+   */
+  startArguments?: Record<string, string>;
 }
 
 /**
@@ -128,22 +133,32 @@ export function createProviderCheckoutApi(
   options: ProviderCheckoutOptions = {},
 ): ProviderCheckoutApi {
   const returnArguments = options.returnArguments ?? {};
+  const startArguments = options.startArguments ?? {};
   const startField = `${prefix}CheckoutStart`;
   const returnField = `${prefix}CheckoutReturn`;
   const cancelField = `${prefix}CheckoutCancel`;
 
   return {
     async start(basketId, options) {
-      const document = `mutation start($basketId: ID!, $confirm: Boolean!, $returnUrl: String!, $cancelUrl: String, $uiMode: String!) {
-        ${startField}(basketId: $basketId, confirmTermsAndConditions: $confirm, returnUrl: $returnUrl, cancelUrl: $cancelUrl, uiMode: $uiMode) { ${RESULT_FIELDS.start} }
+      const extra = Object.entries(startArguments).filter(
+        ([option]) => options.providerOptions?.[option] !== undefined,
+      );
+      const declarations = extra.map(([, argument]) => `, $${argument}: String`).join('');
+      const passes = extra.map(([, argument]) => `, ${argument}: $${argument}`).join('');
+      const document = `mutation start($basketId: ID!, $confirm: Boolean!, $returnUrl: String!, $cancelUrl: String, $uiMode: String!${declarations}) {
+        ${startField}(basketId: $basketId, confirmTermsAndConditions: $confirm, returnUrl: $returnUrl, cancelUrl: $cancelUrl, uiMode: $uiMode${passes}) { ${RESULT_FIELDS.start} }
       }`;
-      const data = await client.execute<Record<string, CheckoutStartResult>>(document, {
+      const variables: Record<string, unknown> = {
         basketId,
         confirm: true,
         returnUrl: options.returnUrl,
         cancelUrl: options.cancelUrl ?? null,
         uiMode: options.uiMode ?? 'hosted',
-      });
+      };
+      for (const [option, argument] of extra) {
+        variables[argument] = options.providerOptions?.[option];
+      }
+      const data = await client.execute<Record<string, CheckoutStartResult>>(document, variables);
       return data[startField];
     },
 
