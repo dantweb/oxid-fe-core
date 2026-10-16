@@ -12,6 +12,13 @@ export {
   GraphqlError,
   type GraphqlErrorShape,
 } from './api/GraphqlError';
+export {
+  createSavedListsApi,
+  type SavedList,
+  type SavedListItem,
+  type SavedListKind,
+  type SavedListsApi,
+} from './account/savedLists';
 export { AuthService, TOKEN_QUERY } from './auth/AuthService';
 export { decodeJwtPayload, isJwtExpired, type OxidJwtPayload } from './auth/jwt';
 export { TokenStorage } from './auth/TokenStorage';
