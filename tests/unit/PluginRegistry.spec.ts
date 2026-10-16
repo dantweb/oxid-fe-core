@@ -63,3 +63,54 @@ describe('PluginRegistry', () => {
     );
   });
 });
+
+describe('layout plugin seam', () => {
+  const loaderOf = (name: string) => async () => ({ default: { name } });
+
+  it('overrideFor returns null without overrides and the supplied view with one', () => {
+    const registry = new PluginRegistry();
+    registry.register({ name: 'shop', version: '1' });
+    expect(registry.overrideFor('header')).toBeNull();
+
+    const header = loaderOf('header');
+    registry.register({ name: 'layout', version: '1', overrides: { header } });
+    expect(registry.overrideFor('header')).toBe(header);
+    expect(registry.overrideFor('home')).toBeNull();
+  });
+
+  it('with several overriding plugins the one registered last wins', () => {
+    const registry = new PluginRegistry();
+    const first = loaderOf('first');
+    const second = loaderOf('second');
+    registry.register({ name: 'a', version: '1', overrides: { home: first } });
+    registry.register({ name: 'b', version: '1', overrides: { home: second } });
+
+    expect(registry.overrideFor('home')).toBe(second);
+  });
+
+  it('defaultTheme is the first declared plugin theme, or null', () => {
+    const registry = new PluginRegistry();
+    registry.register({ name: 'shop', version: '1' });
+    expect(registry.defaultTheme()).toBeNull();
+
+    registry.register({ name: 'layout', version: '1', defaultTheme: 'peroxid' });
+    registry.register({ name: 'other', version: '1', defaultTheme: 'dark' });
+    expect(registry.defaultTheme()).toBe('peroxid');
+  });
+
+  it('requires: a missing required plugin fails setupAll with a clear message', async () => {
+    const registry = new PluginRegistry();
+    registry.register({ name: 'layout', version: '1', requires: ['shop'] });
+
+    const base = { client: {}, auth: {}, events: {}, registry } as unknown as Omit<
+      PluginContext,
+      'config'
+    >;
+    await expect(registry.setupAll(base)).rejects.toThrow(
+      'plugin "layout" requires "shop", which is not enabled',
+    );
+
+    registry.register({ name: 'shop', version: '1' });
+    await expect(registry.setupAll(base)).resolves.toBeUndefined();
+  });
+});

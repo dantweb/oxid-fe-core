@@ -1,6 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router';
 import { isPaymentPlugin, type PaymentPlugin } from './payment';
-import type { IPlugin, NavItem, PluginContext } from './types';
+import type { IPlugin, NavItem, OverrideSlot, PluginContext, ViewLoader } from './types';
 
 interface RegisteredPlugin {
   plugin: IPlugin;
@@ -41,6 +41,34 @@ export class PluginRegistry {
     return this.all().flatMap((plugin) => plugin.routes ?? []);
   }
 
+  /**
+   * The view a plugin supplies for a host slot, or null for the host's own. With several
+   * overriding plugins the one registered last wins (= listed last in the instance config).
+   */
+  overrideFor(slot: OverrideSlot): ViewLoader | null {
+    let found: ViewLoader | null = null;
+    for (const plugin of this.all()) {
+      found = plugin.overrides?.[slot] ?? found;
+    }
+    return found;
+  }
+
+  /** The theme the first plugin declaring one brings along, if any. */
+  defaultTheme(): string | null {
+    return this.all().find((plugin) => plugin.defaultTheme)?.defaultTheme ?? null;
+  }
+
+  /** Throws a clear error when a plugin's `requires` names a plugin that is not registered. */
+  validateRequirements(): void {
+    for (const plugin of this.all()) {
+      for (const required of plugin.requires ?? []) {
+        if (!this.has(required)) {
+          throw new Error(`plugin "${plugin.name}" requires "${required}", which is not enabled`);
+        }
+      }
+    }
+  }
+
   get paymentPlugins(): PaymentPlugin[] {
     return this.all().filter(isPaymentPlugin);
   }
@@ -70,6 +98,7 @@ export class PluginRegistry {
 
   /** Runs every plugin's setup with its merged config. */
   async setupAll(base: Omit<PluginContext, 'config'>): Promise<void> {
+    this.validateRequirements();
     for (const { plugin, config } of this.plugins.values()) {
       await plugin.setup?.({ ...base, config });
     }

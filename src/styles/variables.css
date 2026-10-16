@@ -19,6 +19,7 @@
   --oxfe-color-background: #ffffff;
   --oxfe-color-surface: #f7f7f7;
   --oxfe-color-link: #0a5d9c;
+  --oxfe-color-accent: #0a5d9c;
   --oxfe-color-danger: #b00020;
   --oxfe-color-warning-bg: #fff3cd;
   --oxfe-color-warning-border: #e0c668;
@@ -30,5 +31,6 @@
 
   /* Typography & layout */
   --oxfe-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --oxfe-font-heading: var(--oxfe-font-family);
   --oxfe-container-max-width: 1100px;
 }

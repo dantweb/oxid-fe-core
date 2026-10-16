@@ -1,8 +1,14 @@
+import type { Component } from 'vue';
 import type { RouteRecordRaw } from 'vue-router';
 import type { GraphqlClient } from '../api/GraphqlClient';
 import type { AuthService } from '../auth/AuthService';
 import type { EventBus } from '../events/EventBus';
 import type { PluginRegistry } from './PluginRegistry';
+
+/** Parts of the host's default layout a plugin can take over. */
+export type OverrideSlot = 'header' | 'footer' | 'home';
+
+export type ViewLoader = () => Promise<{ default: Component }>;
 
 export interface NavItem {
   /** i18n key, resolved by the host's vue-i18n instance. */
@@ -36,5 +42,11 @@ export interface IPlugin {
   /** locale → message subtree, merged into the host i18n under the plugin name. */
   messages?: Record<string, Record<string, unknown>>;
   defaultConfig?: Record<string, unknown>;
+  /** Views this plugin takes over from the host's defaults (layout plugins). */
+  overrides?: Partial<Record<OverrideSlot, ViewLoader>>;
+  /** Plugins that must be enabled for this one to work; checked at boot. */
+  requires?: string[];
+  /** The theme this plugin brings along; applies when the instance names no theme itself. */
+  defaultTheme?: string;
   setup?(context: PluginContext): void | Promise<void>;
 }

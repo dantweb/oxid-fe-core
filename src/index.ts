@@ -30,7 +30,7 @@ export {
   type ReturnParams,
 } from './plugins/payment';
 export { PluginRegistry } from './plugins/PluginRegistry';
-export type { IPlugin, NavItem, PluginContext } from './plugins/types';
+export type { IPlugin, NavItem, OverrideSlot, PluginContext, ViewLoader } from './plugins/types';
 export { createAuthStore } from './stores/createAuthStore';
 export { addressSchema, type AddressInput } from './validation/address';
 export { formatPrice } from './utils/price';
