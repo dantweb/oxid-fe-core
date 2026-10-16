@@ -16,6 +16,16 @@ export default defineConfig({
   },
   test: {
     environment: 'happy-dom',
+    // unit tests never touch the network: <link>/<script> elements must not be fetched
+    environmentOptions: {
+      happyDOM: {
+        settings: {
+          disableCSSFileLoading: true,
+          disableJavaScriptFileLoading: true,
+          handleDisabledFileLoadingAsSuccess: true,
+        },
+      },
+    },
     include: ['tests/**/*.spec.ts'],
     coverage: {
       provider: 'v8',
