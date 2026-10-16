@@ -88,6 +88,18 @@ describe('layout plugin seam', () => {
     expect(registry.overrideFor('home')).toBe(second);
   });
 
+  it('overlays collects every plugin’s global components in registration order', () => {
+    const registry = new PluginRegistry();
+    registry.register({ name: 'shop', version: '1' });
+    expect(registry.overlays()).toEqual([]);
+
+    const consent = loaderOf('consent');
+    const banner = loaderOf('banner');
+    registry.register({ name: 'a', version: '1', overlays: [consent] });
+    registry.register({ name: 'b', version: '1', overlays: [banner] });
+    expect(registry.overlays()).toEqual([consent, banner]);
+  });
+
   it('defaultTheme is the first declared plugin theme, or null', () => {
     const registry = new PluginRegistry();
     registry.register({ name: 'shop', version: '1' });

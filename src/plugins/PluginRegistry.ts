@@ -53,6 +53,11 @@ export class PluginRegistry {
     return found;
   }
 
+  /** The global components of all plugins (see `IPlugin.overlays`), in registration order. */
+  overlays(): ViewLoader[] {
+    return this.all().flatMap((plugin) => plugin.overlays ?? []);
+  }
+
   /** The theme the first plugin declaring one brings along, if any. */
   defaultTheme(): string | null {
     return this.all().find((plugin) => plugin.defaultTheme)?.defaultTheme ?? null;

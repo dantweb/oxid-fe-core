@@ -44,6 +44,11 @@ export interface IPlugin {
   defaultConfig?: Record<string, unknown>;
   /** Views this plugin takes over from the host's defaults (layout plugins). */
   overrides?: Partial<Record<OverrideSlot, ViewLoader>>;
+  /**
+   * Global components rendered once next to the host's layout, on every page (cookie consent,
+   * notification banners, chat widgets …). Each manages its own visibility.
+   */
+  overlays?: ViewLoader[];
   /** Plugins that must be enabled for this one to work; checked at boot. */
   requires?: string[];
   /** The theme this plugin brings along; applies when the instance names no theme itself. */
