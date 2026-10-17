@@ -2,6 +2,7 @@ export {
   GraphqlClient,
   type GraphqlClientOptions,
   type GraphqlResponse,
+  type LanguageProvider,
   type ResponseInterceptor,
   type TokenProvider,
 } from './api/GraphqlClient';

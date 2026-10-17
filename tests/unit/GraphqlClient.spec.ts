@@ -112,4 +112,49 @@ describe('GraphqlClient', () => {
 
     expect(seen).toEqual(['nope']);
   });
+
+  describe('content language', () => {
+    it('sends the provider’s locale as Accept-Language, so the shop answers in the storefront’s language', async () => {
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ data: { ok: true } })));
+      const client = new GraphqlClient({ url: '/graphql/', fetchFn });
+      client.setLanguageProvider(() => 'de');
+
+      await client.execute('{ ok }');
+
+      expect(fetchFn.mock.calls[0][1].headers['Accept-Language']).toBe('de');
+    });
+
+    it('follows the provider on every call (a language switch applies to the next request)', async () => {
+      const fetchFn = vi
+        .fn()
+        .mockImplementation(() =>
+          Promise.resolve(new Response(JSON.stringify({ data: { ok: true } }))),
+        );
+      const client = new GraphqlClient({ url: '/graphql/', fetchFn });
+      let locale = 'de';
+      client.setLanguageProvider(() => locale);
+
+      await client.execute('{ ok }');
+      locale = 'en';
+      await client.execute('{ ok }');
+
+      expect(fetchFn.mock.calls.map((call) => call[1].headers['Accept-Language'])).toEqual([
+        'de',
+        'en',
+      ]);
+    });
+
+    it('sends no Accept-Language of its own without a provider (the browser’s applies)', async () => {
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ data: { ok: true } })));
+      const client = new GraphqlClient({ url: '/graphql/', fetchFn });
+
+      await client.execute('{ ok }');
+
+      expect(fetchFn.mock.calls[0][1].headers['Accept-Language']).toBeUndefined();
+    });
+  });
 });

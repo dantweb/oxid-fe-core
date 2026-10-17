@@ -11,6 +11,8 @@ export interface GraphqlResponse<TData = unknown> {
 }
 
 export type TokenProvider = () => string | null;
+/** The storefront's active locale (`de`, `en`, …) — the shop answers in that language. */
+export type LanguageProvider = () => string | null;
 export type ResponseInterceptor = (response: GraphqlResponse) => void;
 
 export interface GraphqlClientOptions {
@@ -31,6 +33,7 @@ export class GraphqlClient {
   private readonly fetchFn: typeof fetch;
   private readonly headers: Record<string, string>;
   private tokenProvider: TokenProvider = () => null;
+  private languageProvider: LanguageProvider = () => null;
   private readonly responseInterceptors: ResponseInterceptor[] = [];
 
   constructor(options: GraphqlClientOptions) {
@@ -41,6 +44,14 @@ export class GraphqlClient {
 
   setTokenProvider(provider: TokenProvider): void {
     this.tokenProvider = provider;
+  }
+
+  /**
+   * OXID answers in the language of the request's `Accept-Language`. Without this the BROWSER's
+   * language decides — a German storefront would show an English visitor English product data.
+   */
+  setLanguageProvider(provider: LanguageProvider): void {
+    this.languageProvider = provider;
   }
 
   /** Runs on every response body before errors are thrown (e.g. session-expiry detection). */
@@ -82,6 +93,10 @@ export class GraphqlClient {
       'Content-Type': 'application/json',
       ...this.headers,
     };
+    const language = this.languageProvider();
+    if (language) {
+      headers['Accept-Language'] = language;
+    }
     const token = this.tokenProvider();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
