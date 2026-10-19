@@ -1,11 +1,13 @@
 export {
   GraphqlClient,
+  type ExecuteOptions,
   type GraphqlClientOptions,
   type GraphqlResponse,
   type LanguageProvider,
   type ResponseInterceptor,
   type TokenProvider,
 } from './api/GraphqlClient';
+export { ResponseCache, type ResponseCacheOptions } from './api/ResponseCache';
 export {
   ERROR_CODE_HTTP,
   ERROR_CODE_NETWORK,

@@ -4,6 +4,8 @@ import {
   GraphqlError,
   type GraphqlErrorShape,
 } from './GraphqlError';
+import type { ResponseCache } from './ResponseCache';
+import { stableStringify } from './stableStringify';
 
 export interface GraphqlResponse<TData = unknown> {
   data?: TData;
@@ -21,7 +23,16 @@ export interface GraphqlClientOptions {
   /** Injectable for tests and non-browser runtimes. */
   fetchFn?: typeof fetch;
   headers?: Record<string, string>;
+  /** Answers of calls that opt in with `cacheTtlMs`; without it nothing is cached. */
+  cache?: ResponseCache;
 }
+
+export interface ExecuteOptions {
+  /** Serve an identical read from memory for this long. Reads (queries) only. */
+  cacheTtlMs?: number;
+}
+
+const MUTATION = /^\s*mutation\b/;
 
 /**
  * Thin typed transport to the OXID GraphQL endpoint (graphql-base).
@@ -32,6 +43,7 @@ export class GraphqlClient {
   private readonly url: string;
   private readonly fetchFn: typeof fetch;
   private readonly headers: Record<string, string>;
+  private readonly cache: ResponseCache | undefined;
   private tokenProvider: TokenProvider = () => null;
   private languageProvider: LanguageProvider = () => null;
   private readonly responseInterceptors: ResponseInterceptor[] = [];
@@ -40,6 +52,7 @@ export class GraphqlClient {
     this.url = options.url;
     this.fetchFn = options.fetchFn ?? globalThis.fetch.bind(globalThis);
     this.headers = options.headers ?? {};
+    this.cache = options.cache;
   }
 
   setTokenProvider(provider: TokenProvider): void {
@@ -59,7 +72,40 @@ export class GraphqlClient {
     this.responseInterceptors.push(interceptor);
   }
 
-  async execute<TData>(query: string, variables?: Record<string, unknown>): Promise<TData> {
+  async execute<TData>(
+    query: string,
+    variables?: Record<string, unknown>,
+    options: ExecuteOptions = {},
+  ): Promise<TData> {
+    const { cacheTtlMs } = options;
+    if (MUTATION.test(query)) {
+      if (cacheTtlMs !== undefined) {
+        throw new Error('A mutation must not be cached');
+      }
+      const data = await this.send<TData>(query, variables);
+      // whatever was read before may be stale now (basket, login, address …)
+      this.cache?.clear();
+      return data;
+    }
+    if (cacheTtlMs === undefined || !this.cache) {
+      return this.send<TData>(query, variables);
+    }
+    return this.cache.remember(this.cacheKey(query, variables), cacheTtlMs, () =>
+      this.send<TData>(query, variables),
+    );
+  }
+
+  /** Language and token are part of the key: the shop answers per language and per user. */
+  private cacheKey(query: string, variables?: Record<string, unknown>): string {
+    return [
+      this.languageProvider() ?? '',
+      this.tokenProvider() ?? '',
+      query,
+      stableStringify(variables ?? {}),
+    ].join('\n');
+  }
+
+  private async send<TData>(query: string, variables?: Record<string, unknown>): Promise<TData> {
     let response: Response;
     try {
       response = await this.fetchFn(this.url, {
