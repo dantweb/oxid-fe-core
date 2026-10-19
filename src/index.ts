@@ -52,3 +52,10 @@ export { applyTheme, clearTheme } from './theme/applyTheme';
 export { loadTheme, THEME_STYLESHEET_ID, type LoadThemeOptions } from './theme/loadTheme';
 export { themeConfigSchema, type ResolvedTheme, type ThemeConfig } from './theme/types';
 export { loadScriptOnce } from './utils/script';
+export {
+  fetchSealedConfig,
+  SealedConfigError,
+  type BrowserKeyPair,
+  type SealedConfigOptions,
+  type SealedValues,
+} from './payments/sealedConfig';

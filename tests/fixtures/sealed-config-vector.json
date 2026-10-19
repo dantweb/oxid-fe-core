@@ -1,0 +1,34 @@
+{
+  "note": "Test vector shared by oxid-fe-core (WebCrypto) and payment-base (PHP openssl). Keys are throw-away. info = aad.",
+  "provider": "paypal",
+  "tokenId": "vector-token-id",
+  "issuedAt": 1792400000,
+  "aad": "oxid-pcc|v1|paypal|1792400000|vector-token-id",
+  "plaintext": "{\"clientId\":\"VECTOR-NOT-A-REAL-KEY\"}",
+  "clientPrivateKeyJwk": {
+    "kty": "EC",
+    "x": "GRhnyTxxuoWRNciavKx7b2jP84X3hVcQBPGy7HfLNx8",
+    "y": "B_91gO8R7TYDhurHtNufv5TcSSm4iRHb55xgb_ijFI0",
+    "crv": "P-256",
+    "d": "BouLID8Fk5mWqsNhi0EG2RABqeJAyjYcwaUatZwtY4w"
+  },
+  "clientPublicKey": "BBkYZ8k8cbqFkTXImryse29oz_OF94VXEATxsux3yzcfB_91gO8R7TYDhurHtNufv5TcSSm4iRHb55xgb_ijFI0",
+  "serverPrivateKeyJwk": {
+    "kty": "EC",
+    "x": "dy3lE_VmQ-W9CIP33FxjouYHXTatKl1pZOBtCVzPuBs",
+    "y": "R4tNw1TZy0Fj8QsofhvvsBRrUjaFJIjzi6Vcx-n6xGA",
+    "crv": "P-256",
+    "d": "R6-FcZmPn2Eiau2fN0lQxTOPgHdsZOjXshKhNN0qIjY"
+  },
+  "salt": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+  "iv": "CQkJCQkJCQkJCQkJ",
+  "envelope": {
+    "v": 1,
+    "alg": "ECDH-P256+HKDF-SHA256+A256GCM",
+    "serverPublicKey": "BHct5RP1ZkPlvQiD99xcY6LmB102rSpdaWTgbQlcz7gbR4tNw1TZy0Fj8QsofhvvsBRrUjaFJIjzi6Vcx-n6xGA",
+    "salt": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    "iv": "CQkJCQkJCQkJCQkJ",
+    "issuedAt": 1792400000,
+    "ciphertext": "lcwuQ0S1z-qNJtpzdplVR-ZGQkn7I9oOnvMJtjSkDCigMIHwc-QbJDif9IGUWWAkIhS0Ew"
+  }
+}
