@@ -15,6 +15,7 @@ describe('createAuthStore', () => {
     const client = {
       execute: vi.fn().mockResolvedValue({ token: customerToken }),
       setTokenProvider: vi.fn(),
+      setTokenRejectedHandler: vi.fn(),
     } as unknown as GraphqlClient;
     const events = new EventBus();
     const auth = new AuthService(client, new TokenStorage(null), events);

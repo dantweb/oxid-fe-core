@@ -6,6 +6,7 @@ export {
   type LanguageProvider,
   type ResponseInterceptor,
   type TokenProvider,
+  type TokenRejectedHandler,
 } from './api/GraphqlClient';
 export { ResponseCache, type ResponseCacheOptions } from './api/ResponseCache';
 export {
@@ -23,6 +24,7 @@ export {
   type SavedListsApi,
 } from './account/savedLists';
 export { AuthService, TOKEN_QUERY } from './auth/AuthService';
+export { isRejectedToken } from './auth/rejectedToken';
 export { decodeJwtPayload, isJwtExpired, type OxidJwtPayload } from './auth/jwt';
 export { TokenStorage } from './auth/TokenStorage';
 export { CoreEvents, EventBus, type EventHandler } from './events/EventBus';

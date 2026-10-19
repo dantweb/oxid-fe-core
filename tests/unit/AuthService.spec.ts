@@ -10,6 +10,7 @@ function makeClient(token: string): GraphqlClient {
     execute: vi.fn().mockResolvedValue({ token }),
     setTokenProvider: vi.fn(),
     addResponseInterceptor: vi.fn(),
+    setTokenRejectedHandler: vi.fn(),
   } as unknown as GraphqlClient;
 }
 
@@ -35,10 +36,12 @@ describe('AuthService', () => {
 
     await auth.login('u@x', 'secret');
 
-    expect(client.execute).toHaveBeenCalledWith(TOKEN_QUERY, {
-      username: 'u@x',
-      password: 'secret',
-    });
+    // the token query never carries a token: a stale one must not block the login
+    expect(client.execute).toHaveBeenCalledWith(
+      TOKEN_QUERY,
+      { username: 'u@x', password: 'secret' },
+      { omitToken: true },
+    );
     expect(auth.token()).toBe(customerToken);
     expect(auth.isAuthenticated()).toBe(true);
     expect(auth.isAnonymous()).toBe(false);
@@ -51,7 +54,7 @@ describe('AuthService', () => {
 
     await auth.loginAnonymous();
 
-    expect(client.execute).toHaveBeenCalledWith(TOKEN_QUERY);
+    expect(client.execute).toHaveBeenCalledWith(TOKEN_QUERY, undefined, { omitToken: true });
     expect(auth.isAuthenticated()).toBe(false);
     expect(auth.isAnonymous()).toBe(true);
     expect(auth.hasValidToken()).toBe(true);
@@ -105,4 +108,51 @@ describe('AuthService', () => {
     auth.checkExpiry();
     expect(expired).toBe(1); // anonymous expiry is silent
   });
+
+  describe('a token the shop refuses', () => {
+    function rejectionHandler(auth: ReturnType<typeof make>) {
+      return vi.mocked(auth.client.setTokenRejectedHandler).mock.calls[0][0];
+    }
+
+    it('registers a rejection handler on the client', () => {
+      const made = make('t');
+      expect(made.client.setTokenRejectedHandler).toHaveBeenCalledOnce();
+    });
+
+    it('drops a refused customer token and announces the expired session', () => {
+      const made = make('unused');
+      made.storage.set(fakeJwt({ exp: expiresIn(3600), useranonymous: false }));
+      let expired = 0;
+      made.events.on(CoreEvents.SessionExpired, () => expired++);
+
+      rejectionHandler(made)();
+
+      expect(made.auth.token()).toBeNull();
+      expect(expired).toBe(1);
+    });
+
+    it('drops a refused guest token silently (a new one is fetched on demand)', () => {
+      const made = make('unused');
+      made.storage.set(fakeJwt({ exp: expiresIn(3600), useranonymous: true }));
+      let expired = 0;
+      made.events.on(CoreEvents.SessionExpired, () => expired++);
+
+      rejectionHandler(made)();
+
+      expect(made.auth.token()).toBeNull();
+      expect(expired).toBe(0);
+    });
+  });
+
+  it.each([['garbage'], [''], ['a.b.c'], ['aaa.@@@.ccc']])(
+    'a stored value that is not a JWT (%j) is dropped at read time',
+    (stored) => {
+      const { auth, storage } = make('unused');
+      storage.set(stored);
+
+      expect(auth.token()).toBeNull();
+      expect(storage.get()).toBeNull(); // gone from storage, not just hidden
+      expect(auth.hasValidToken()).toBe(false);
+    },
+  );
 });

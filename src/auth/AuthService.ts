@@ -29,10 +29,17 @@ export class AuthService {
     private readonly events: EventBus,
   ) {
     this.client.setTokenProvider(() => this.token());
+    this.client.setTokenRejectedHandler(() => this.dropRejectedToken());
   }
 
+  /** The stored token, or null. A stored value that is not even a JWT is dropped here, for good. */
   token(): string | null {
-    return this.storage.get();
+    const stored = this.storage.get();
+    if (stored !== null && decodeJwtPayload(stored) === null) {
+      this.storage.clear();
+      return null;
+    }
+    return stored;
   }
 
   payload(): OxidJwtPayload | null {
@@ -55,17 +62,21 @@ export class AuthService {
   }
 
   async login(username: string, password: string): Promise<void> {
-    const data = await this.client.execute<{ token: string }>(TOKEN_QUERY, {
-      username,
-      password,
-    });
+    // no token goes with the token query: a stale one would be refused before the login is read
+    const data = await this.client.execute<{ token: string }>(
+      TOKEN_QUERY,
+      { username, password },
+      { omitToken: true },
+    );
     this.storage.set(data.token);
     this.events.emit(CoreEvents.AuthLogin, { username });
   }
 
   /** Guest session: anonymous JWT for browsing and baskets. */
   async loginAnonymous(): Promise<void> {
-    const data = await this.client.execute<{ token: string }>(TOKEN_QUERY);
+    const data = await this.client.execute<{ token: string }>(TOKEN_QUERY, undefined, {
+      omitToken: true,
+    });
     this.storage.set(data.token);
   }
 
@@ -88,6 +99,15 @@ export class AuthService {
   logout(): void {
     this.storage.clear();
     this.events.emit(CoreEvents.AuthLogout);
+  }
+
+  /** The shop said no to our token: drop it. Only a customer's lost session is worth announcing. */
+  private dropRejectedToken(): void {
+    const wasCustomer = this.payload()?.useranonymous === false;
+    this.storage.clear();
+    if (wasCustomer) {
+      this.events.emit(CoreEvents.SessionExpired);
+    }
   }
 
   /**

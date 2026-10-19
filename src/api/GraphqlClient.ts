@@ -4,6 +4,7 @@ import {
   GraphqlError,
   type GraphqlErrorShape,
 } from './GraphqlError';
+import { isRejectedToken } from '../auth/rejectedToken';
 import type { ResponseCache } from './ResponseCache';
 import { stableStringify } from './stableStringify';
 
@@ -16,6 +17,8 @@ export type TokenProvider = () => string | null;
 /** The storefront's active locale (`de`, `en`, …) — the shop answers in that language. */
 export type LanguageProvider = () => string | null;
 export type ResponseInterceptor = (response: GraphqlResponse) => void;
+/** Called when the shop refused the request's bearer token; the owner of the token drops it. */
+export type TokenRejectedHandler = () => void;
 
 export interface GraphqlClientOptions {
   /** Absolute or same-origin URL of the shop's GraphQL endpoint, e.g. `/graphql/`. */
@@ -30,6 +33,8 @@ export interface GraphqlClientOptions {
 export interface ExecuteOptions {
   /** Serve an identical read from memory for this long. Reads (queries) only. */
   cacheTtlMs?: number;
+  /** Send no Authorization header — for the calls that replace a token (login, guest token). */
+  omitToken?: boolean;
 }
 
 const MUTATION = /^\s*mutation\b/;
@@ -47,6 +52,7 @@ export class GraphqlClient {
   private tokenProvider: TokenProvider = () => null;
   private languageProvider: LanguageProvider = () => null;
   private readonly responseInterceptors: ResponseInterceptor[] = [];
+  private tokenRejectedHandler: TokenRejectedHandler | null = null;
 
   constructor(options: GraphqlClientOptions) {
     this.url = options.url;
@@ -67,6 +73,14 @@ export class GraphqlClient {
     this.languageProvider = provider;
   }
 
+  /**
+   * The shop checks the bearer token before it reads the query. When it refuses one, the handler
+   * drops it and a query is retried once without a token (a mutation is never replayed).
+   */
+  setTokenRejectedHandler(handler: TokenRejectedHandler): void {
+    this.tokenRejectedHandler = handler;
+  }
+
   /** Runs on every response body before errors are thrown (e.g. session-expiry detection). */
   addResponseInterceptor(interceptor: ResponseInterceptor): void {
     this.responseInterceptors.push(interceptor);
@@ -82,17 +96,39 @@ export class GraphqlClient {
       if (cacheTtlMs !== undefined) {
         throw new Error('A mutation must not be cached');
       }
-      const data = await this.send<TData>(query, variables);
+      const data = await this.sendGuarded<TData>(query, variables, options, false);
       // whatever was read before may be stale now (basket, login, address …)
       this.cache?.clear();
       return data;
     }
     if (cacheTtlMs === undefined || !this.cache) {
-      return this.send<TData>(query, variables);
+      return this.sendGuarded<TData>(query, variables, options, true);
     }
     return this.cache.remember(this.cacheKey(query, variables), cacheTtlMs, () =>
-      this.send<TData>(query, variables),
+      this.sendGuarded<TData>(query, variables, options, true),
     );
+  }
+
+  /** Sends; if the shop refuses the token we sent, lets its owner drop it and (queries only) retries once. */
+  private async sendGuarded<TData>(
+    query: string,
+    variables: Record<string, unknown> | undefined,
+    options: ExecuteOptions,
+    retryable: boolean,
+  ): Promise<TData> {
+    const tokenSent = !options.omitToken && this.tokenProvider() !== null;
+    try {
+      return await this.send<TData>(query, variables, options.omitToken === true);
+    } catch (error) {
+      if (!tokenSent || !this.tokenRejectedHandler || !isRejectedToken(error)) {
+        throw error;
+      }
+      this.tokenRejectedHandler();
+      if (!retryable) {
+        throw error;
+      }
+      return this.send<TData>(query, variables, false);
+    }
   }
 
   /** Language and token are part of the key: the shop answers per language and per user. */
@@ -105,12 +141,16 @@ export class GraphqlClient {
     ].join('\n');
   }
 
-  private async send<TData>(query: string, variables?: Record<string, unknown>): Promise<TData> {
+  private async send<TData>(
+    query: string,
+    variables: Record<string, unknown> | undefined,
+    omitToken: boolean,
+  ): Promise<TData> {
     let response: Response;
     try {
       response = await this.fetchFn(this.url, {
         method: 'POST',
-        headers: this.buildHeaders(),
+        headers: this.buildHeaders(omitToken),
         body: JSON.stringify({ query, variables }),
       });
     } catch (cause) {
@@ -134,7 +174,7 @@ export class GraphqlClient {
     return body.data;
   }
 
-  private buildHeaders(): Record<string, string> {
+  private buildHeaders(omitToken: boolean): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...this.headers,
@@ -143,7 +183,7 @@ export class GraphqlClient {
     if (language) {
       headers['Accept-Language'] = language;
     }
-    const token = this.tokenProvider();
+    const token = omitToken ? null : this.tokenProvider();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
