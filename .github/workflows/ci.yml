@@ -2,8 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # feature branches get the same gate as main — no PR needed to see a branch green
+    branches: [main, 'feature/**']
   pull_request:
+  workflow_dispatch:
 
 jobs:
   quality-gate:
