@@ -59,3 +59,9 @@ export {
   type SealedConfigOptions,
   type SealedValues,
 } from './payments/sealedConfig';
+export {
+  createSealedKeys,
+  sealedKeysForPlugin,
+  type SealedKeys,
+  type SealedKeysOptions,
+} from './payments/sealedKeys';
