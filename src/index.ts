@@ -65,3 +65,11 @@ export {
   type SealedKeys,
   type SealedKeysOptions,
 } from './payments/sealedKeys';
+export {
+  languageName,
+  LOCALE_STORAGE_KEY,
+  localeSwitchKey,
+  useLocaleSwitch,
+  type LocaleSwitch,
+  type LocaleSwitchSource,
+} from './i18n/localeSwitch';
