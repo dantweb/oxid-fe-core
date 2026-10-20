@@ -1,5 +1,4 @@
 import type { GraphqlClient } from '../api/GraphqlClient';
-import { GraphqlError } from '../api/GraphqlError';
 
 /**
  * The shopper's saved product lists. OXID keeps them as baskets with reserved titles — the same
@@ -32,10 +31,11 @@ export interface SavedListsApi {
 }
 
 const GET = /* GraphQL */ `
-  query savedList($title: String!) {
+  query savedLists {
     customer {
-      basket(title: $title) {
+      baskets {
         id
+        title
         public
         items {
           id
@@ -92,18 +92,12 @@ const MAKE_PRIVATE = /* GraphQL */ `
 
 export function createSavedListsApi(client: GraphqlClient): SavedListsApi {
   async function get(kind: SavedListKind): Promise<SavedList | null> {
-    try {
-      const data = await client.execute<{ customer: { basket: SavedList | null } }>(GET, {
-        title: kind,
-      });
-      return data.customer.basket;
-    } catch (cause) {
-      // the shop answers an error, not null, while the customer has no such list yet
-      if (cause instanceof GraphqlError && /not found/i.test(cause.message)) {
-        return null;
-      }
-      throw cause;
-    }
+    // customer.basket(title) would throw BasketForUserNotFound (logged as ERROR by the shop) for
+    // every customer without the list, so read all baskets and pick by title instead
+    const data = await client.execute<{ customer: { baskets: (SavedList & { title: string })[] } }>(
+      GET,
+    );
+    return data.customer.baskets.find((basket) => basket.title === kind) ?? null;
   }
 
   return {
