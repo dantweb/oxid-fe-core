@@ -13,51 +13,50 @@ function clientAnswering(...answers: unknown[]): GraphqlClient {
 const calls = (client: GraphqlClient) => (client.execute as ReturnType<typeof vi.fn>).mock.calls;
 
 describe('createSavedListsApi', () => {
-  it('reads a list by its reserved title (noticelist = wish list, wishlist = gift registry)', async () => {
+  it('reads a list from customer.baskets by its reserved title', async () => {
+    const wishlist = {
+      id: 'b1',
+      title: 'wishlist',
+      public: true,
+      items: [{ id: 'i1', amount: 2, product: { id: 'p1', title: 'Kuyichi' } }],
+    };
     const client = clientAnswering({
       customer: {
-        basket: {
-          id: 'b1',
-          public: true,
-          items: [{ id: 'i1', amount: 2, product: { id: 'p1', title: 'Kuyichi' } }],
-        },
+        baskets: [{ id: 'b0', title: 'noticelist', public: false, items: [] }, wishlist],
       },
     });
 
     const list = await createSavedListsApi(client).get('wishlist');
 
-    expect(list).toEqual({
-      id: 'b1',
-      public: true,
-      items: [{ id: 'i1', amount: 2, product: { id: 'p1', title: 'Kuyichi' } }],
-    });
-    expect(calls(client)[0][1]).toEqual({ title: 'wishlist' });
+    expect(list).toEqual(wishlist);
+    expect(calls(client)[0][0]).toContain('query savedLists');
+    expect(calls(client)[0][0]).toContain('baskets');
+    expect(calls(client)[0][0]).not.toContain('basket(');
   });
 
-  it('answers null when the customer has no such list yet', async () => {
-    const client = clientAnswering({ customer: { basket: null } });
+  it('answers null when no basket carries the title — without a GraphQL error', async () => {
+    const client = clientAnswering(
+      { customer: { baskets: [] } },
+      { customer: { baskets: [{ id: 'b0', title: 'wishlist', public: false, items: [] }] } },
+    );
+    const api = createSavedListsApi(client);
 
-    expect(await createSavedListsApi(client).get('noticelist')).toBeNull();
+    expect(await api.get('noticelist')).toBeNull();
+    expect(await api.get('noticelist')).toBeNull();
   });
 
-  it('treats the shop’s "not found" answer as no list yet, but rethrows other errors', async () => {
-    const notFound = GraphqlError.fromErrors([
-      {
-        message: 'Basket "noticelist" not found for user "u1"',
-        extensions: { category: 'requesterror' },
-      },
-    ]);
-    const broken = GraphqlError.fromErrors([{ message: 'Internal server error' }]);
-    const missing = { execute: vi.fn().mockRejectedValue(notFound) } as unknown as GraphqlClient;
+  it('rethrows any GraphQL error', async () => {
+    const broken = GraphqlError.fromErrors([{ message: 'Basket "noticelist" not found' }]);
     const failing = { execute: vi.fn().mockRejectedValue(broken) } as unknown as GraphqlClient;
 
-    expect(await createSavedListsApi(missing).get('noticelist')).toBeNull();
     await expect(createSavedListsApi(failing).get('noticelist')).rejects.toBe(broken);
   });
 
   it('adds to an existing list without creating one', async () => {
     const client = clientAnswering(
-      { customer: { basket: { id: 'b1', public: false, items: [] } } },
+      {
+        customer: { baskets: [{ id: 'b1', title: 'noticelist', public: false, items: [] }] },
+      },
       { basketAddItem: { id: 'b1' } },
     );
 
@@ -69,7 +68,7 @@ describe('createSavedListsApi', () => {
 
   it('creates the list on the first add', async () => {
     const client = clientAnswering(
-      { customer: { basket: null } },
+      { customer: { baskets: [] } },
       { basketCreate: { id: 'new' } },
       { basketAddItem: { id: 'new' } },
     );
@@ -105,8 +104,14 @@ describe('createSavedListsApi', () => {
   it('counts the entries of a list (0 without a list)', async () => {
     const api = createSavedListsApi(
       clientAnswering(
-        { customer: { basket: { id: 'b', public: false, items: [{ id: 'x' }, { id: 'y' }] } } },
-        { customer: { basket: null } },
+        {
+          customer: {
+            baskets: [
+              { id: 'b', title: 'noticelist', public: false, items: [{ id: 'x' }, { id: 'y' }] },
+            ],
+          },
+        },
+        { customer: { baskets: [] } },
       ),
     );
 
