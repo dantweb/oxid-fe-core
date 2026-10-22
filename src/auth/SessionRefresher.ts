@@ -1,12 +1,13 @@
-import type { GraphqlClient } from '../api/GraphqlClient';
 import { isTransportFailure } from '../api/errorCodes';
 import { decodeJwtPayload } from './jwt';
+import type { RefreshStrategy } from './RefreshStrategy';
 import type { TokenStorage } from './TokenStorage';
 
 /**
- * graphql-base: `refresh(refreshToken, fingerprintHash): String` answers a new access token.
- * The shop also wants the HttpOnly fingerprint cookie `login` set (same-origin requests carry it);
- * `fingerprintHash` is the claim of the access token we hold.
+ * graphql-base: `refresh(refreshToken, fingerprintHash): String` answers a new access token — the
+ * document of the default {@link FingerprintRefreshStrategy}. The shop also wants the HttpOnly
+ * fingerprint cookie `login` set (same-origin requests carry it); `fingerprintHash` is the claim of
+ * the access token we hold.
  */
 export const REFRESH_QUERY = /* GraphQL */ `
   query refresh($refreshToken: String!, $fingerprintHash: String!) {
@@ -24,20 +25,25 @@ const MAX_TIMER_MS = 2 ** 31 - 1;
 
 /**
  * Keeps an access token alive: refreshes it shortly before it expires. Owns the timer and the
- * `refresh` call, nothing else — what a refused refresh means for the session is the owner's
- * decision (`onRefused`).
+ * one-at-a-time rule; the renewal itself is the {@link RefreshStrategy}'s, and what a refused one
+ * means for the session is the owner's decision (`onRefused`).
  */
 export class SessionRefresher {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running: Promise<boolean> | null = null;
 
   constructor(
-    private readonly client: GraphqlClient,
+    private readonly strategy: RefreshStrategy,
     private readonly storage: TokenStorage,
     private readonly onRefused: () => void,
   ) {}
 
-  /** (Re)plans the next refresh from the stored session; does nothing without a refresh token. */
+  /** Something to renew an expired session with exists (see {@link RefreshStrategy.hasCredentials}). */
+  hasCredentials(): boolean {
+    return this.strategy.hasCredentials();
+  }
+
+  /** (Re)plans the next refresh from the stored session; does nothing when it cannot be renewed. */
   start(): void {
     this.stop();
     const delay = this.delayUntilRefresh();
@@ -69,26 +75,25 @@ export class SessionRefresher {
   }
 
   private async performRefresh(): Promise<boolean> {
-    const refreshToken = this.storage.getRefreshToken();
-    const fingerprintHash = decodeJwtPayload(this.storage.get() ?? '')?.fingerprintHash;
-    if (!refreshToken || typeof fingerprintHash !== 'string') {
+    if (!this.strategy.canRenew()) {
       return false;
     }
+    const session = this.sessionIdentity();
     try {
-      const data = await this.client.execute<{ refresh?: unknown }>(
-        REFRESH_QUERY,
-        { refreshToken, fingerprintHash },
-        { omitToken: true },
-      );
-      return this.adopt(refreshToken, data.refresh);
+      return this.adopt(session, await this.strategy.renew());
     } catch (error) {
       this.handleFailure(error);
       return false;
     }
   }
 
-  private adopt(usedRefreshToken: string, renewed: unknown): boolean {
-    if (this.storage.getRefreshToken() !== usedRefreshToken) {
+  /** What identifies the session a renewal was asked for; a different one later means "ended meanwhile". */
+  private sessionIdentity(): string {
+    return `${this.storage.get()}\n${this.storage.getRefreshToken()}`;
+  }
+
+  private adopt(askedFor: string, renewed: unknown): boolean {
+    if (this.sessionIdentity() !== askedFor) {
       return false; // logged out (or logged in again) while the shop was answering
     }
     if (typeof renewed !== 'string') {
@@ -127,16 +132,16 @@ export class SessionRefresher {
 
   private delayUntilRefresh(): number | null {
     const remaining = this.remainingMs();
-    if (remaining === null || !this.storage.getRefreshToken()) {
+    if (remaining === null || !this.strategy.canRenew()) {
       return null;
     }
     return Math.max(0, remaining - Math.min(LEAD_MS, remaining * LEAD_FRACTION));
   }
 
-  /** Milliseconds until `exp`; null when the stored token cannot be refreshed (no exp / no fingerprint). */
+  /** Milliseconds until `exp`; null when the stored token has none. */
   private remainingMs(): number | null {
     const payload = decodeJwtPayload(this.storage.get() ?? '');
-    if (!payload?.exp || !payload.fingerprintHash) {
+    if (!payload?.exp) {
       return null;
     }
     return payload.exp * 1000 - Date.now();
