@@ -5,6 +5,8 @@ import {
   type GraphqlErrorShape,
 } from './GraphqlError';
 import { isRejectedToken } from '../auth/rejectedToken';
+import { createAbortGuard, type AbortGuard } from './abortGuard';
+import { buildMultipartBody } from './multipart';
 import type { ResponseCache } from './ResponseCache';
 import { stableStringify } from './stableStringify';
 
@@ -44,6 +46,12 @@ export interface ExecuteOptions {
   cacheTtlMs?: number;
   /** Send no Authorization header — for the calls that replace a token (login, guest token). */
   omitToken?: boolean;
+  /** Aborts the request; the abort is rethrown as the runtime's `AbortError`, not as a GraphqlError. */
+  signal?: AbortSignal;
+  /** Gives up after this long with a `network_error` GraphqlError (a transport failure, so retryable). */
+  timeoutMs?: number;
+  /** Extra headers for this call only (e.g. `X-OXID-Admin`); they never replace the bearer token. */
+  headers?: Record<string, string>;
 }
 
 const MUTATION = /^\s*mutation\b/;
@@ -122,7 +130,7 @@ export class GraphqlClient {
     if (cacheTtlMs === undefined || !this.cache) {
       return this.sendGuarded<TData>(query, variables, options, true);
     }
-    return this.cache.remember(this.cacheKey(query, variables), cacheTtlMs, () =>
+    return this.cache.remember(this.cacheKey(query, variables, options.headers), cacheTtlMs, () =>
       this.sendGuarded<TData>(query, variables, options, true),
     );
   }
@@ -136,7 +144,7 @@ export class GraphqlClient {
   ): Promise<TData> {
     const tokenSent = !options.omitToken && this.tokenProvider() !== null;
     try {
-      return await this.send<TData>(query, variables, options.omitToken === true);
+      return await this.send<TData>(query, variables, options, options.omitToken === true);
     } catch (error) {
       if (!tokenSent || !this.tokenRejectedHandler || !isRejectedToken(error)) {
         throw error;
@@ -145,38 +153,61 @@ export class GraphqlClient {
       if (!retryable) {
         throw error;
       }
-      return this.send<TData>(query, variables, false);
+      return this.send<TData>(query, variables, options, false);
     }
   }
 
   /** The final URL, language and token are part of the key: the shop answers per language, shop and user. */
-  private cacheKey(query: string, variables?: Record<string, unknown>): string {
+  private cacheKey(
+    query: string,
+    variables?: Record<string, unknown>,
+    headers?: Record<string, string>,
+  ): string {
     return [
       this.endpointUrl(),
       this.languageProvider() ?? '',
       this.tokenProvider() ?? '',
       query,
       stableStringify(variables ?? {}),
+      ...(headers ? [stableStringify(headers)] : []),
     ].join('\n');
   }
 
   private async send<TData>(
     query: string,
     variables: Record<string, unknown> | undefined,
+    options: ExecuteOptions,
     omitToken: boolean,
   ): Promise<TData> {
+    const guard = createAbortGuard(options.signal, options.timeoutMs);
+    try {
+      return await this.exchange<TData>(query, variables, options, omitToken, guard);
+    } finally {
+      guard.dispose();
+    }
+  }
+
+  private async exchange<TData>(
+    query: string,
+    variables: Record<string, unknown> | undefined,
+    options: ExecuteOptions,
+    omitToken: boolean,
+    guard: AbortGuard,
+  ): Promise<TData> {
+    const multipart = buildMultipartBody(query, variables);
     let response: Response;
     try {
       response = await this.fetchFn(this.endpointUrl(), {
         method: 'POST',
-        headers: this.buildHeaders(omitToken),
-        body: JSON.stringify({ query, variables }),
+        headers: this.buildHeaders(omitToken, options.headers, multipart !== null),
+        body: multipart ?? JSON.stringify({ query, variables }),
+        ...(guard.signal ? { signal: guard.signal } : {}),
       });
     } catch (cause) {
-      throw new GraphqlError(`GraphQL endpoint unreachable: ${String(cause)}`, ERROR_CODE_NETWORK);
+      throw this.transportFailure(cause, options, guard);
     }
 
-    const body = (await this.parseBody(response)) as GraphqlResponse<TData>;
+    const body = (await this.parseBody(response, options, guard)) as GraphqlResponse<TData>;
 
     for (const interceptor of this.responseInterceptors) {
       interceptor(body);
@@ -193,6 +224,20 @@ export class GraphqlClient {
     return body.data;
   }
 
+  /** The caller's own abort is not a failure of the shop: it goes back as it came. */
+  private transportFailure(cause: unknown, options: ExecuteOptions, guard: AbortGuard): unknown {
+    if (options.signal?.aborted && !guard.timedOut()) {
+      return cause;
+    }
+    if (guard.timedOut()) {
+      return new GraphqlError(
+        `GraphQL request timed out after ${options.timeoutMs} ms`,
+        ERROR_CODE_NETWORK,
+      );
+    }
+    return new GraphqlError(`GraphQL endpoint unreachable: ${String(cause)}`, ERROR_CODE_NETWORK);
+  }
+
   private endpointUrl(): string {
     const { shp, lang } = this.endpointParamsProvider();
     const pairs = [
@@ -205,27 +250,54 @@ export class GraphqlClient {
     return `${this.url}${this.url.includes('?') ? '&' : '?'}${pairs.join('&')}`;
   }
 
-  private buildHeaders(omitToken: boolean): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...this.headers,
-    };
+  private buildHeaders(
+    omitToken: boolean,
+    callHeaders: Record<string, string> | undefined,
+    multipart: boolean,
+  ): Record<string, string> {
+    const headers: Record<string, string> = { ...this.headers, ...callHeaders };
+    if (multipart) {
+      // the runtime sets multipart/form-data with the boundary itself
+      deleteHeader(headers, 'content-type');
+    } else if (!hasHeader(headers, 'content-type')) {
+      headers['Content-Type'] = 'application/json';
+    }
     const language = this.languageProvider();
     if (language) {
       headers['Accept-Language'] = language;
     }
     const token = omitToken ? null : this.tokenProvider();
     if (token) {
+      deleteHeader(headers, 'authorization');
       headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
   }
 
-  private async parseBody(response: Response): Promise<unknown> {
+  private async parseBody(
+    response: Response,
+    options: ExecuteOptions,
+    guard: AbortGuard,
+  ): Promise<unknown> {
     try {
       return await response.json();
-    } catch {
+    } catch (cause) {
+      if (guard.timedOut() || options.signal?.aborted) {
+        throw this.transportFailure(cause, options, guard);
+      }
       throw new GraphqlError(`HTTP ${response.status}: response is not JSON`, ERROR_CODE_HTTP);
+    }
+  }
+}
+
+function hasHeader(headers: Record<string, string>, name: string): boolean {
+  return Object.keys(headers).some((key) => key.toLowerCase() === name);
+}
+
+function deleteHeader(headers: Record<string, string>, name: string): void {
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === name) {
+      delete headers[key];
     }
   }
 }
