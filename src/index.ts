@@ -21,6 +21,7 @@ export {
 export {
   errorCodeOf,
   providerCodeOf,
+  type AdminErrorCode,
   type KnownErrorCode,
   type ShopErrorCode,
   type TransportErrorCode,
