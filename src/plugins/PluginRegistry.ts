@@ -2,8 +2,8 @@ import type { RouteRecordRaw } from 'vue-router';
 import { isPaymentPlugin, type PaymentPlugin } from './payment';
 import type { IPlugin, NavItem, OverrideSlot, PluginContext, ViewLoader } from './types';
 
-interface RegisteredPlugin {
-  plugin: IPlugin;
+interface RegisteredPlugin<TSlot extends string> {
+  plugin: IPlugin<TSlot>;
   config: Record<string, unknown>;
 }
 
@@ -12,10 +12,10 @@ interface RegisteredPlugin {
  * The registry never touches the router, i18n or pinia itself — the host
  * applies `routes`, `navItems` and `messagesFor()` where they belong.
  */
-export class PluginRegistry {
-  private readonly plugins = new Map<string, RegisteredPlugin>();
+export class PluginRegistry<TSlot extends string = OverrideSlot> {
+  private readonly plugins = new Map<string, RegisteredPlugin<TSlot>>();
 
-  register(plugin: IPlugin, configOverrides: Record<string, unknown> = {}): void {
+  register(plugin: IPlugin<TSlot>, configOverrides: Record<string, unknown> = {}): void {
     if (this.plugins.has(plugin.name)) {
       throw new Error(`Plugin "${plugin.name}" is already registered`);
     }
@@ -29,7 +29,7 @@ export class PluginRegistry {
     return this.plugins.has(name);
   }
 
-  all(): IPlugin[] {
+  all(): IPlugin<TSlot>[] {
     return [...this.plugins.values()].map((entry) => entry.plugin);
   }
 
@@ -45,7 +45,7 @@ export class PluginRegistry {
    * The view a plugin supplies for a host slot, or null for the host's own. With several
    * overriding plugins the one registered last wins (= listed last in the instance config).
    */
-  overrideFor(slot: OverrideSlot): ViewLoader | null {
+  overrideFor(slot: TSlot): ViewLoader | null {
     let found: ViewLoader | null = null;
     for (const plugin of this.all()) {
       found = plugin.overrides?.[slot] ?? found;

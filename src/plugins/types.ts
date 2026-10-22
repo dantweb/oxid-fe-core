@@ -5,8 +5,16 @@ import type { AuthService } from '../auth/AuthService';
 import type { EventBus } from '../events/EventBus';
 import type { PluginRegistry } from './PluginRegistry';
 
-/** Parts of the host's default layout a plugin can take over. */
-export type OverrideSlot = 'header' | 'footer' | 'home';
+/** The slots of the storefront layout. */
+export const STOREFRONT_SLOTS = { header: 'header', footer: 'footer', home: 'home' } as const;
+export type StorefrontSlot = (typeof STOREFRONT_SLOTS)[keyof typeof STOREFRONT_SLOTS];
+
+/**
+ * A part of a host's default layout a plugin can take over. Any string: a host defines its own
+ * (`topbar`, `dashboard`, `entityTabs:<entity>`) and narrows the type with the generic parameter of
+ * `IPlugin` / `PluginRegistry` (the storefront uses {@link StorefrontSlot}).
+ */
+export type OverrideSlot = string;
 
 export type ViewLoader = () => Promise<{ default: Component }>;
 
@@ -40,7 +48,7 @@ export interface PluginContext {
  * vbwd-fe-user's plugin anatomy: declarative routes/nav/i18n plus an
  * imperative setup for stores, event subscriptions and client wiring.
  */
-export interface IPlugin {
+export interface IPlugin<TSlot extends string = OverrideSlot> {
   name: string;
   version: string;
   routes?: RouteRecordRaw[];
@@ -49,7 +57,7 @@ export interface IPlugin {
   messages?: Record<string, Record<string, unknown>>;
   defaultConfig?: Record<string, unknown>;
   /** Views this plugin takes over from the host's defaults (layout plugins). */
-  overrides?: Partial<Record<OverrideSlot, ViewLoader>>;
+  overrides?: Partial<Record<TSlot, ViewLoader>>;
   /**
    * Global components rendered once next to the host's layout, on every page (cookie consent,
    * notification banners, chat widgets …). Each manages its own visibility.

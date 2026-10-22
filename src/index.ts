@@ -65,7 +65,15 @@ export {
   type ReturnParams,
 } from './plugins/payment';
 export { PluginRegistry } from './plugins/PluginRegistry';
-export type { IPlugin, NavItem, OverrideSlot, PluginContext, ViewLoader } from './plugins/types';
+export {
+  STOREFRONT_SLOTS,
+  type IPlugin,
+  type NavItem,
+  type OverrideSlot,
+  type PluginContext,
+  type StorefrontSlot,
+  type ViewLoader,
+} from './plugins/types';
 export { createAuthStore } from './stores/createAuthStore';
 export { addressSchema, type AddressInput } from './validation/address';
 export { formatPrice } from './utils/price';
