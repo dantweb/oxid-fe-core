@@ -1,5 +1,7 @@
 export {
   GraphqlClient,
+  type EndpointParams,
+  type EndpointParamsProvider,
   type ExecuteOptions,
   type GraphqlClientOptions,
   type GraphqlResponse,
