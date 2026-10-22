@@ -103,3 +103,10 @@ export {
   type LocaleSwitch,
   type LocaleSwitchSource,
 } from './i18n/localeSwitch';
+export {
+  createIdleTimer,
+  type IdleChannel,
+  type IdleEventTarget,
+  type IdleTimer,
+  type IdleTimerOptions,
+} from './session/idleTimer';
