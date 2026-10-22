@@ -16,6 +16,12 @@ export interface NavItem {
   to: string;
   order?: number;
   requiresAuth?: boolean;
+  /** Right the user must hold to see the item (see `PluginRegistry.navTree`). */
+  requiredRight?: string;
+  /** Sub-items: the item is a group, shown only while one of its children is. */
+  children?: NavItem[];
+  /** Free-form grouping label for the host's navigation (i18n key); passed through untouched. */
+  section?: string;
 }
 
 /** What a plugin's setup() receives from the host. */

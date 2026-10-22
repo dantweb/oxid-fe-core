@@ -47,6 +47,7 @@ export { decodeJwtPayload, isJwtExpired, type OxidJwtPayload } from './auth/jwt'
 export { MemoryStorage, TokenStorage, type TokenStorageOptions } from './auth/TokenStorage';
 export { CoreEvents, EventBus, type EventHandler } from './events/EventBus';
 export { createAuthGuard } from './guards/authGuard';
+export { createRightsGuard } from './guards/rightsGuard';
 export {
   createProviderCheckoutApi,
   isPaymentPlugin,

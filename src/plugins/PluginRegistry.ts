@@ -89,6 +89,15 @@ export class PluginRegistry {
       .sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
   }
 
+  /**
+   * The navigation as a tree, sorted by `order` at every level and cut down to what `hasRight`
+   * allows: an item whose `requiredRight` is refused goes with its children, and a group whose
+   * children are all gone goes too. The plugins' own items are not modified.
+   */
+  navTree(hasRight: (right: string) => boolean): NavItem[] {
+    return filterNav(this.navItems, hasRight);
+  }
+
   /** Message tree for one locale: { <pluginName>: <plugin messages> }. */
   messagesFor(locale: string): Record<string, unknown> {
     const merged: Record<string, unknown> = {};
@@ -108,4 +117,19 @@ export class PluginRegistry {
       await plugin.setup?.({ ...base, config });
     }
   }
+}
+
+function filterNav(items: NavItem[], hasRight: (right: string) => boolean): NavItem[] {
+  return [...items]
+    .sort((a, b) => (a.order ?? 100) - (b.order ?? 100))
+    .flatMap((item) => {
+      if (item.requiredRight !== undefined && !hasRight(item.requiredRight)) {
+        return [];
+      }
+      if (!item.children) {
+        return [item];
+      }
+      const children = filterNav(item.children, hasRight);
+      return children.length > 0 ? [{ ...item, children }] : [];
+    });
 }
