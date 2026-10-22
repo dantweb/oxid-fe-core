@@ -43,3 +43,9 @@ export function errorCodeOf(error: unknown): KnownErrorCode | undefined {
 export function providerCodeOf(error: unknown): string | undefined {
   return error instanceof GraphqlError ? error.providerCode : undefined;
 }
+
+/** The request never produced a shop answer (unreachable, or not JSON): worth retrying, not a verdict. */
+export function isTransportFailure(error: unknown): boolean {
+  const code = errorCodeOf(error);
+  return code === ERROR_CODE_NETWORK || code === ERROR_CODE_HTTP;
+}

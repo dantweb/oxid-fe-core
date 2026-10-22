@@ -32,7 +32,14 @@ export {
   type SavedListKind,
   type SavedListsApi,
 } from './account/savedLists';
-export { AuthService, TOKEN_QUERY } from './auth/AuthService';
+export {
+  AuthService,
+  LOGIN_QUERY,
+  TOKEN_DELETE_MUTATION,
+  TOKEN_QUERY,
+  type AuthServiceOptions,
+} from './auth/AuthService';
+export { REFRESH_QUERY } from './auth/SessionRefresher';
 export { isRejectedToken } from './auth/rejectedToken';
 export { decodeJwtPayload, isJwtExpired, type OxidJwtPayload } from './auth/jwt';
 export { TokenStorage } from './auth/TokenStorage';
