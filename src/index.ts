@@ -19,6 +19,13 @@ export {
   type GraphqlErrorShape,
 } from './api/GraphqlError';
 export {
+  errorCodeOf,
+  providerCodeOf,
+  type KnownErrorCode,
+  type ShopErrorCode,
+  type TransportErrorCode,
+} from './api/errorCodes';
+export {
   createSavedListsApi,
   type SavedList,
   type SavedListItem,
