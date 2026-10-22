@@ -27,7 +27,7 @@ export default defineConfig({
     include: ['tests/**/*.spec.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/**'],
+      include: ['src/**', 'theme-tools/**'],
       reporter: ['text-summary', 'json-summary'],
       reportsDirectory: 'coverage',
       thresholds: { lines: 90 },

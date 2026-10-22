@@ -31,6 +31,17 @@ setTimer, clearTimer, channel, onWarn, onResume, onTimeout })` with `start` / `s
   variables sends the request as GraphQL multipart (`operations` / `map` / files).
 - **C01-8 — isolation.** `createAuthStore(auth, events, { id })`; coverage threshold (lines ≥ 90) is
   enforced by `vite.config.ts`.
+- **A01b — theme tooling.** Node-side export `@dantweb/oxid-fe-core/theme-tools` (and the
+  `oxfe-build-themes` bin): `buildThemes({ srcDir, outDir, only?, tokenPrefixes? })` compiles
+  `<srcDir>/<id>/{config.json, styles/styles.less, images/, fonts/}` into `<outDir>/<id>/` (LESS, parent
+  chains, one error listing every problem), `validateThemeConfig`, `validateParentChains`,
+  `stageThemeSources`, `DEFAULT_TOKEN_PREFIXES`. `tokenPrefixes` (default `['--oxfe-']`) names the custom
+  property prefixes a theme may set; an admin app passes `['--oxfe-', '--oxadm-']`. `less` is a dependency
+  of this export only; the browser bundle never imports it. The code is the one of oxid-fe-user's
+  `scripts/theme-*.mjs` (which keeps its copy until it switches).
+- **A01b — `loadTheme({ tokenPrefixes })`.** Opt-in: tokens whose name starts with none of the prefixes
+  are dropped before they are applied (for a host that serves themes it did not build). Without it the
+  behaviour is unchanged.
 
 ### Changed
 
