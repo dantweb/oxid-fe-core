@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.11.0
+
+Sprint C01 — the generic seams a back-office (admin) app needs. Every seam is opt-in: with no new
+option the behaviour is exactly that of 0.10.0 (token keys `oxfe.token` / `oxfe.refresh`, localStorage,
+anonymous fallback, store id `oxfe-auth`). Nothing admin-specific lives in core.
+
+### Added
+
+- **C01-1 — token storage.** `new TokenStorage(storage, { namespace })` (keys `<namespace>.token` /
+  `<namespace>.refresh`, default `oxfe`) and the exported `MemoryStorage` (a `Storage` that never
+  leaves the page).
+- **C01-2 — auth mode.** `AuthServiceOptions.anonymousFallback: false` — `ensureSession()` never
+  mints an anonymous token. `AuthServiceOptions.refreshStrategy` (`RefreshStrategy`: `hasCredentials()`,
+  `canRenew()`, `renew()`); the default `FingerprintRefreshStrategy` is the 0.10.0 refresh.
+  `adoptToken()` now (re)plans the silent renewal when the strategy can renew the adopted token.
+- **C01-3 — rights.** `createRightsGuard(hasRight, forbiddenPath)` reads `meta.requiredRight`;
+  `NavItem.requiredRight` / `children` / `section`; `PluginRegistry.navTree(hasRight)` returns the
+  sorted tree cut down to the allowed items (a group without remaining children is dropped).
+- **C01-4 — override slots.** `OverrideSlot` is now `string`; `STOREFRONT_SLOTS` and `StorefrontSlot`
+  name the storefront ones; `IPlugin<TSlot>` and `PluginRegistry<TSlot>` take the slot union of a host
+  (default `string`).
+- **C01-5 — error codes.** `AdminErrorCode` in `KnownErrorCode`: `admin_session_required`,
+  `admin_session_revoked`, `mfa_required`, `mfa_invalid`, `step_up_required`, `permission_denied`,
+  `not_found`, `validation_failed`, `conflict`, `not_deletable`, `rate_limited`.
+- **C01-6 — idle timer.** `createIdleTimer({ timeoutMs, warnMs, events, target, throttleMs, now,
+setTimer, clearTimer, channel, onWarn, onResume, onTimeout })` with `start` / `stop` / `reset` /
+  `remainingMs`; cross-tab sync through an injected `BroadcastChannel`.
+- **C01-7 — transport.** `execute(…, { signal, timeoutMs, headers })`; a `File`/`Blob` anywhere in the
+  variables sends the request as GraphQL multipart (`operations` / `map` / files).
+- **C01-8 — isolation.** `createAuthStore(auth, events, { id })`; coverage threshold (lines ≥ 90) is
+  enforced by `vite.config.ts`.
+
+### Changed
+
+- `PluginRegistry.overrideFor` / `IPlugin.overrides` are typed by the registry's slot parameter
+  (default `string`, so a host that names `OverrideSlot` compiles unchanged).
+- `SessionRefresher` takes a `RefreshStrategy` instead of the client (internal; not exported).
+- An abort of the caller's `signal` is rethrown as the runtime's `AbortError`; a `timeoutMs` expiry is a
+  `network_error` GraphqlError (a transport failure: the session is kept).
+
 ## 0.10.0
 
 Sprints 139b, 138f, 138e, 140c (core parts). All additions are backward compatible for a host that

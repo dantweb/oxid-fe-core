@@ -78,6 +78,56 @@ auth.isAnonymous(); // a guest token (claim `useranonymous`) is valid
 
 The argument type is `GuestCheckoutInput` (payment-base); without `guest` the mutation is unchanged.
 
+## Seams for a back-office app (0.11)
+
+All opt-in; defaults are the storefront behaviour of 0.10.
+
+```ts
+// token storage: memory only, own key namespace
+const storage = new TokenStorage(new MemoryStorage(), { namespace: 'oxadm' });
+
+// auth: no guests, own renewal scheme
+const auth = new AuthService(client, storage, events, {
+  anonymousFallback: false, // ensureSession() never mints an anonymous token
+  refreshStrategy, // { hasCredentials(), canRenew(), renew(): Promise<unknown> } — default: FingerprintRefreshStrategy
+});
+
+// rights: routes, navigation
+router.beforeEach(createRightsGuard((right) => session.has(right), '/forbidden')); // meta.requiredRight
+registry.navTree((right) => session.has(right)); // NavItem.requiredRight / children / section
+
+// override slots are strings; narrow them per host
+const registry = new PluginRegistry<'topbar' | 'dashboard'>();
+registry.overrideFor(STOREFRONT_SLOTS.header); // the storefront's constants
+
+// idle timeout, synced across tabs
+const idle = createIdleTimer({
+  timeoutMs: 15 * 60_000,
+  warnMs: 60_000,
+  channel: new BroadcastChannel('oxadm-idle'),
+  onWarn: showStaySignedIn, // idle.reset() = "stay signed in"
+  onResume: hideStaySignedIn,
+  onTimeout: signOut,
+});
+idle.start();
+
+// transport
+await client.execute(doc, vars, { signal, timeoutMs: 10_000, headers: { 'X-OXID-Admin': '1' } });
+await client.execute(UPLOAD, { file }); // a File/Blob in the variables → GraphQL multipart request
+
+// two stores never collide
+createAuthStore(auth, events, { id: 'oxadm-auth' });
+```
+
+`errorCodeOf()` also knows the admin codes (`AdminErrorCode`): `admin_session_required`,
+`admin_session_revoked`, `mfa_required`, `mfa_invalid`, `step_up_required`, `permission_denied`,
+`not_found`, `validation_failed`, `conflict`, `not_deletable`, `rate_limited`.
+
+The idle timer judges deadlines by the clock, not the timer callback, so a sleeping machine or a
+throttled tab still times out on time. Once the warning is out, only `reset()` or activity in another
+tab takes it back — a twitching mouse does not. A `timeoutMs` expiry surfaces as a `network_error`
+GraphqlError; the caller's own abort is rethrown as the runtime's `AbortError`.
+
 ## Development
 
 oxid-fe-core is a **library**, not a service: it has no container of its own. It is built with

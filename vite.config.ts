@@ -30,6 +30,7 @@ export default defineConfig({
       include: ['src/**'],
       reporter: ['text-summary', 'json-summary'],
       reportsDirectory: 'coverage',
+      thresholds: { lines: 90 },
     },
   },
 });

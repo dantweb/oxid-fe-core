@@ -75,7 +75,7 @@ export {
   type StorefrontSlot,
   type ViewLoader,
 } from './plugins/types';
-export { createAuthStore } from './stores/createAuthStore';
+export { createAuthStore, type AuthStoreOptions } from './stores/createAuthStore';
 export { addressSchema, type AddressInput } from './validation/address';
 export { formatPrice } from './utils/price';
 export { applyTheme, clearTheme } from './theme/applyTheme';
