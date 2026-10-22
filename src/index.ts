@@ -42,7 +42,7 @@ export {
 export { REFRESH_QUERY } from './auth/SessionRefresher';
 export { isRejectedToken } from './auth/rejectedToken';
 export { decodeJwtPayload, isJwtExpired, type OxidJwtPayload } from './auth/jwt';
-export { TokenStorage } from './auth/TokenStorage';
+export { MemoryStorage, TokenStorage, type TokenStorageOptions } from './auth/TokenStorage';
 export { CoreEvents, EventBus, type EventHandler } from './events/EventBus';
 export { createAuthGuard } from './guards/authGuard';
 export {
