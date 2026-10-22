@@ -4,6 +4,7 @@ import type { IPlugin } from '../../src/plugins/types';
 import {
   createProviderCheckoutApi,
   isPaymentPlugin,
+  type GuestDetails,
   type PaymentPlugin,
 } from '../../src/plugins/payment';
 
@@ -125,5 +126,66 @@ describe('createProviderCheckoutApi', () => {
     });
     const cancelApi = createProviderCheckoutApi(cancelClient, 'mollie');
     expect((await cancelApi.cancel('c1', 't1')).cancelled).toBe(true);
+  });
+});
+
+describe('createProviderCheckoutApi — guest checkout (140c C2)', () => {
+  const guest: GuestDetails = {
+    email: 'guest@example.test',
+    invoiceAddress: {
+      salutation: 'MR',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      street: 'Main Street',
+      streetNumber: '1',
+      zipCode: '79098',
+      city: 'Freiburg',
+      countryId: 'a7c40f631fc920687.20179984',
+    },
+  };
+
+  function startedWith(options: Record<string, unknown>) {
+    const client = clientAnswering({ stripeCheckoutStart: { contractId: 'c1' } });
+    const api = createProviderCheckoutApi(client, 'stripe');
+    return api
+      .start('b', { returnUrl: 'r', ...options })
+      .then(() => (client.execute as ReturnType<typeof vi.fn>).mock.calls[0]);
+  }
+
+  it('start_guestProvided_declaresAndPassesTheGuestArgument', async () => {
+    const [document, variables] = await startedWith({ guest });
+
+    expect(document).toContain('$guest: GuestCheckoutInput');
+    expect(document).toContain('guest: $guest');
+    expect(variables.guest).toEqual(guest);
+  });
+
+  it('start_guestWithDeliveryAddress_passesBothAddresses', async () => {
+    const deliveryAddress = { ...guest.invoiceAddress, firstName: 'Grace' };
+
+    const [, variables] = await startedWith({ guest: { ...guest, deliveryAddress } });
+
+    expect(variables.guest).toEqual({ ...guest, deliveryAddress });
+  });
+
+  it('start_noGuest_documentAndVariablesCarryNoGuestArgument', async () => {
+    const [document, variables] = await startedWith({});
+
+    expect(document).not.toContain('guest');
+    expect(variables).not.toHaveProperty('guest');
+  });
+
+  it('start_guestAndProviderOptions_bothArePassed', async () => {
+    const client = clientAnswering({ mollieCheckoutStart: { contractId: 'c1' } });
+    const api = createProviderCheckoutApi(client, 'mollie', {
+      startArguments: { method: 'method' },
+    });
+
+    await api.start('b', { returnUrl: 'r', guest, providerOptions: { method: 'ideal' } });
+
+    const [document, variables] = (client.execute as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(document).toContain('guest: $guest');
+    expect(document).toContain('method: $method');
+    expect(variables).toMatchObject({ method: 'ideal', guest });
   });
 });

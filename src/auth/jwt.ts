@@ -9,6 +9,8 @@ export interface OxidJwtPayload {
   userid?: string;
   useranonymous?: boolean;
   tokenid?: string;
+  /** Hash of the HttpOnly fingerprint cookie `login` sets; `refresh` must send it back. */
+  fingerprintHash?: string;
   [key: string]: unknown;
 }
 

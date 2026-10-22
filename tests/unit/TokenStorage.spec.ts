@@ -43,4 +43,49 @@ describe('TokenStorage', () => {
     storage.set('jwt-3');
     expect(storage.get()).toBe('jwt-3');
   });
+
+  describe('refresh token', () => {
+    it('getRefreshToken_nothingStored_returnsNull', () => {
+      expect(new TokenStorage(globalThis.localStorage).getRefreshToken()).toBeNull();
+    });
+
+    it('setRefreshToken_stored_survivesANewInstanceOnTheSameStorage', () => {
+      new TokenStorage(globalThis.localStorage).setRefreshToken('r-1');
+
+      expect(new TokenStorage(globalThis.localStorage).getRefreshToken()).toBe('r-1');
+      new TokenStorage(globalThis.localStorage).clear();
+    });
+
+    it('clear_removesAccessAndRefreshToken', () => {
+      const storage = new TokenStorage(globalThis.localStorage);
+      storage.set('jwt');
+      storage.setRefreshToken('r-1');
+
+      storage.clear();
+
+      expect(storage.get()).toBeNull();
+      expect(storage.getRefreshToken()).toBeNull();
+    });
+
+    it('clearRefreshToken_keepsTheAccessToken', () => {
+      const storage = new TokenStorage(null);
+      storage.set('jwt');
+      storage.setRefreshToken('r-1');
+
+      storage.clearRefreshToken();
+
+      expect(storage.getRefreshToken()).toBeNull();
+      expect(storage.get()).toBe('jwt');
+    });
+
+    it('setRefreshToken_storageThrows_fallsBackToMemory', () => {
+      const storage = new TokenStorage(throwingStorage());
+
+      storage.setRefreshToken('r-2');
+      expect(storage.getRefreshToken()).toBe('r-2');
+
+      storage.clear();
+      expect(storage.getRefreshToken()).toBeNull();
+    });
+  });
 });

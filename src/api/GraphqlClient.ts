@@ -16,6 +16,15 @@ export interface GraphqlResponse<TData = unknown> {
 export type TokenProvider = () => string | null;
 /** The storefront's active locale (`de`, `en`, …) — the shop answers in that language. */
 export type LanguageProvider = () => string | null;
+/**
+ * Language and shop as the API documents them: numeric ids in the query string
+ * (`/graphql/?shp=2&lang=1`). Nothing set → nothing appended.
+ */
+export interface EndpointParams {
+  lang?: number;
+  shp?: number;
+}
+export type EndpointParamsProvider = () => EndpointParams;
 export type ResponseInterceptor = (response: GraphqlResponse) => void;
 /** Called when the shop refused the request's bearer token; the owner of the token drops it. */
 export type TokenRejectedHandler = () => void;
@@ -51,6 +60,7 @@ export class GraphqlClient {
   private readonly cache: ResponseCache | undefined;
   private tokenProvider: TokenProvider = () => null;
   private languageProvider: LanguageProvider = () => null;
+  private endpointParamsProvider: EndpointParamsProvider = () => ({});
   private readonly responseInterceptors: ResponseInterceptor[] = [];
   private tokenRejectedHandler: TokenRejectedHandler | null = null;
 
@@ -71,6 +81,14 @@ export class GraphqlClient {
    */
   setLanguageProvider(provider: LanguageProvider): void {
     this.languageProvider = provider;
+  }
+
+  /**
+   * Selects language and shop the documented way: `?shp=<id>&lang=<id>` on every request.
+   * `Accept-Language` is still sent, so shops that auto-detect the language keep working.
+   */
+  setEndpointParamsProvider(provider: EndpointParamsProvider): void {
+    this.endpointParamsProvider = provider;
   }
 
   /**
@@ -131,9 +149,10 @@ export class GraphqlClient {
     }
   }
 
-  /** Language and token are part of the key: the shop answers per language and per user. */
+  /** The final URL, language and token are part of the key: the shop answers per language, shop and user. */
   private cacheKey(query: string, variables?: Record<string, unknown>): string {
     return [
+      this.endpointUrl(),
       this.languageProvider() ?? '',
       this.tokenProvider() ?? '',
       query,
@@ -148,7 +167,7 @@ export class GraphqlClient {
   ): Promise<TData> {
     let response: Response;
     try {
-      response = await this.fetchFn(this.url, {
+      response = await this.fetchFn(this.endpointUrl(), {
         method: 'POST',
         headers: this.buildHeaders(omitToken),
         body: JSON.stringify({ query, variables }),
@@ -172,6 +191,18 @@ export class GraphqlClient {
     }
 
     return body.data;
+  }
+
+  private endpointUrl(): string {
+    const { shp, lang } = this.endpointParamsProvider();
+    const pairs = [
+      ...(shp === undefined ? [] : [`shp=${shp}`]),
+      ...(lang === undefined ? [] : [`lang=${lang}`]),
+    ];
+    if (pairs.length === 0) {
+      return this.url;
+    }
+    return `${this.url}${this.url.includes('?') ? '&' : '?'}${pairs.join('&')}`;
   }
 
   private buildHeaders(omitToken: boolean): Record<string, string> {
