@@ -51,6 +51,8 @@ export {
   type CheckoutCancelResult,
   type CheckoutReturnResult,
   type CheckoutStartResult,
+  type GuestAddress,
+  type GuestDetails,
   type InlinePaymentAttempt,
   type InlinePaymentProps,
   type PaymentPlugin,

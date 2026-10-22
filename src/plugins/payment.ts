@@ -32,10 +32,35 @@ export interface CheckoutCancelResult {
 /** Query parameters the PSP appended to the return URL (e.g. Stripe's `session_id`). */
 export type ReturnParams = Record<string, string>;
 
+/**
+ * An address as the checkout takes it from a guest. Field names mirror graphql-storefront's
+ * address inputs (`customerInvoiceAddressSet`); `countryId` is the shop's country id.
+ */
+export interface GuestAddress {
+  salutation?: string;
+  firstName: string;
+  lastName: string;
+  street: string;
+  streetNumber?: string;
+  zipCode: string;
+  city: string;
+  countryId: string;
+}
+
+/** What a shopper without an account gives at checkout; the shop turns it into a guest user. */
+export interface GuestDetails {
+  email: string;
+  invoiceAddress: GuestAddress;
+  /** Only when it differs from the invoice address. */
+  deliveryAddress?: GuestAddress;
+}
+
 export interface PaymentStartOptions {
   returnUrl: string;
   cancelUrl?: string;
   uiMode?: string;
+  /** Checkout without an account (payment-base 1.5+): sent as the `guest` argument; omitted → none. */
+  guest?: GuestDetails;
   /** Provider-specific extras a concrete plugin may support (e.g. Mollie's `method`). */
   providerOptions?: Record<string, unknown>;
 }
@@ -92,6 +117,9 @@ export function isPaymentPlugin(plugin: IPlugin): plugin is PaymentPlugin {
   );
 }
 
+/** The input type payment-base defines once for every provider's `<provider>CheckoutStart`. */
+const GUEST_INPUT_TYPE = 'GuestCheckoutInput';
+
 const RESULT_FIELDS = {
   start: 'contractId contractToken orderNumber redirectUrl clientSecret renderMode providerName',
   return: 'status orderId orderNumber contractState',
@@ -143,8 +171,12 @@ export function createProviderCheckoutApi(
       const extra = Object.entries(startArguments).filter(
         ([option]) => options.providerOptions?.[option] !== undefined,
       );
-      const declarations = extra.map(([, argument]) => `, $${argument}: String`).join('');
-      const passes = extra.map(([, argument]) => `, ${argument}: $${argument}`).join('');
+      const guestDeclaration = options.guest ? `, $guest: ${GUEST_INPUT_TYPE}` : '';
+      const guestPass = options.guest ? ', guest: $guest' : '';
+      const declarations =
+        extra.map(([, argument]) => `, $${argument}: String`).join('') + guestDeclaration;
+      const passes =
+        extra.map(([, argument]) => `, ${argument}: $${argument}`).join('') + guestPass;
       const document = `mutation start($basketId: ID!, $confirm: Boolean!, $returnUrl: String!, $cancelUrl: String, $uiMode: String!${declarations}) {
         ${startField}(basketId: $basketId, confirmTermsAndConditions: $confirm, returnUrl: $returnUrl, cancelUrl: $cancelUrl, uiMode: $uiMode${passes}) { ${RESULT_FIELDS.start} }
       }`;
@@ -157,6 +189,9 @@ export function createProviderCheckoutApi(
       };
       for (const [option, argument] of extra) {
         variables[argument] = options.providerOptions?.[option];
+      }
+      if (options.guest) {
+        variables.guest = options.guest;
       }
       const data = await client.execute<Record<string, CheckoutStartResult>>(document, variables);
       return data[startField];
