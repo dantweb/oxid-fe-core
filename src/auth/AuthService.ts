@@ -3,6 +3,8 @@ import { CoreEvents, type EventBus } from '../events/EventBus';
 import { decodeJwtPayload, isJwtExpired, type OxidJwtPayload } from './jwt';
 import { GraphqlError } from '../api/GraphqlError';
 import { errorCodeOf, isTransportFailure } from '../api/errorCodes';
+import { FingerprintRefreshStrategy } from './FingerprintRefreshStrategy';
+import type { RefreshStrategy } from './RefreshStrategy';
 import { SessionRefresher } from './SessionRefresher';
 import type { TokenStorage } from './TokenStorage';
 
@@ -43,6 +45,16 @@ export interface AuthServiceOptions {
    * refuses `login` is detected on the first login and the service falls back by itself.
    */
   refreshFlow?: boolean;
+  /**
+   * `false`: `ensureSession()` never mints an anonymous token — a host without guests (an admin app)
+   * has a session or none. Default `true`.
+   */
+  anonymousFallback?: boolean;
+  /**
+   * How an access token is renewed. Default: graphql-base `refresh` with the stored refresh token
+   * and the token's fingerprint claim. A host with another scheme (a session cookie) injects its own.
+   */
+  refreshStrategy?: RefreshStrategy;
 }
 
 interface LoginTokens {
@@ -63,6 +75,7 @@ interface LoginTokens {
 export class AuthService {
   private readonly refresher: SessionRefresher;
   private refreshFlowAvailable: boolean;
+  private readonly anonymousFallback: boolean;
 
   constructor(
     private readonly client: GraphqlClient,
@@ -71,7 +84,12 @@ export class AuthService {
     options: AuthServiceOptions = {},
   ) {
     this.refreshFlowAvailable = options.refreshFlow ?? true;
-    this.refresher = new SessionRefresher(client, storage, () => this.dropRejectedToken());
+    this.anonymousFallback = options.anonymousFallback ?? true;
+    this.refresher = new SessionRefresher(
+      options.refreshStrategy ?? new FingerprintRefreshStrategy(client, storage),
+      storage,
+      () => this.dropRejectedToken(),
+    );
     this.client.setTokenProvider(() => this.token());
     this.client.setTokenRejectedHandler(() => this.dropRejectedToken());
     this.refresher.start(); // a session stored by an earlier page load keeps being renewed
@@ -131,13 +149,14 @@ export class AuthService {
 
   /**
    * Any usable session (customer or guest). An expired customer session is renewed with its refresh
-   * token first; an anonymous token is fetched only when that is not possible either.
+   * token first; an anonymous token is fetched only when that is not possible either — and never
+   * with `anonymousFallback: false`.
    */
   async ensureSession(): Promise<void> {
     if (this.hasValidToken()) {
       return;
     }
-    if (await this.refresher.refresh()) {
+    if ((await this.refresher.refresh()) || !this.anonymousFallback) {
       return;
     }
     await this.loginAnonymous();
@@ -158,6 +177,7 @@ export class AuthService {
     this.refresher.stop();
     this.storage.clearRefreshToken();
     this.storage.set(token);
+    this.refresher.start(); // plans nothing unless the strategy can renew this session
   }
 
   /**
@@ -246,7 +266,7 @@ export class AuthService {
     if (payload?.useranonymous === true || !isJwtExpired(token)) {
       return;
     }
-    if (this.storage.getRefreshToken()) {
+    if (this.refresher.hasCredentials()) {
       void this.refresher.refresh();
       return;
     }

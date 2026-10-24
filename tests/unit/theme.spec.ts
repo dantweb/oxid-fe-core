@@ -141,4 +141,50 @@ describe('loadTheme', () => {
 
     expect(document.querySelectorAll(`#${THEME_STYLESHEET_ID}`)).toHaveLength(1);
   });
+
+  describe('tokenPrefixes', () => {
+    const mixed = {
+      ...defaultTheme,
+      tokens: {
+        '--oxfe-color-primary': '#0a5d9c',
+        '--oxadm-sidebar-bg': '#111111',
+        display: 'none',
+        '--evil-x': 'red',
+      },
+    };
+
+    it('keeps every token when the option is absent (0.10.0 behaviour)', async () => {
+      const fetchFn = themeServer({ '/themes/default/config.json': mixed });
+
+      const theme = await loadTheme({
+        active: 'default',
+        fallback: 'default',
+        fetchFn,
+        stylesheetTimeoutMs: 5,
+      });
+
+      expect(Object.keys(theme?.tokens ?? {})).toHaveLength(4);
+    });
+
+    it('drops tokens whose name starts with none of the prefixes, before applying them', async () => {
+      const fetchFn = themeServer({ '/themes/default/config.json': mixed });
+
+      const theme = await loadTheme({
+        active: 'default',
+        fallback: 'default',
+        fetchFn,
+        stylesheetTimeoutMs: 5,
+        tokenPrefixes: ['--oxfe-', '--oxadm-'],
+      });
+
+      expect(theme?.tokens).toEqual({
+        '--oxfe-color-primary': '#0a5d9c',
+        '--oxadm-sidebar-bg': '#111111',
+      });
+      const style = document.documentElement.style;
+      expect(style.getPropertyValue('--oxadm-sidebar-bg')).toBe('#111111');
+      expect(style.getPropertyValue('display')).toBe('');
+      expect(style.getPropertyValue('--evil-x')).toBe('');
+    });
+  });
 });

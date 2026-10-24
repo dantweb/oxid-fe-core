@@ -33,3 +33,36 @@ describe('createAuthStore', () => {
     expect(store.username).toBeNull();
   });
 });
+
+describe('createAuthStore id', () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  function service() {
+    const client = {
+      execute: vi.fn(),
+      setTokenProvider: vi.fn(),
+      setTokenRejectedHandler: vi.fn(),
+    } as unknown as GraphqlClient;
+    const events = new EventBus();
+    return { auth: new AuthService(client, new TokenStorage(null), events), events };
+  }
+
+  it('is oxfe-auth by default', () => {
+    const { auth, events } = service();
+
+    expect(createAuthStore(auth, events).$id).toBe('oxfe-auth');
+  });
+
+  it('takes a configurable id so two stores never collide', () => {
+    const storefront = service();
+    const admin = service();
+    admin.auth.adoptToken(fakeJwt({ exp: expiresIn(600), useranonymous: false, username: 'op' }));
+
+    const shopStore = createAuthStore(storefront.auth, storefront.events)();
+    const adminStore = createAuthStore(admin.auth, admin.events, { id: 'oxadm-auth' })();
+
+    expect(adminStore.$id).toBe('oxadm-auth');
+    expect(adminStore.authenticated).toBe(true);
+    expect(shopStore.authenticated).toBe(false);
+  });
+});

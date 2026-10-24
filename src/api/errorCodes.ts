@@ -18,12 +18,29 @@ const SHOP_ERROR_CODES = [
   'guest_details_required',
 ] as const;
 
+/** The fixed list of the admin GraphQL module; generic enough for any back-office client. */
+const ADMIN_ERROR_CODES = [
+  'admin_session_required',
+  'admin_session_revoked',
+  'mfa_required',
+  'mfa_invalid',
+  'step_up_required',
+  'permission_denied',
+  'not_found',
+  'validation_failed',
+  'conflict',
+  'not_deletable',
+  'rate_limited',
+] as const;
+
 export type ShopErrorCode = (typeof SHOP_ERROR_CODES)[number];
+export type AdminErrorCode = (typeof ADMIN_ERROR_CODES)[number];
 export type TransportErrorCode = typeof ERROR_CODE_NETWORK | typeof ERROR_CODE_HTTP;
-export type KnownErrorCode = ShopErrorCode | TransportErrorCode;
+export type KnownErrorCode = ShopErrorCode | AdminErrorCode | TransportErrorCode;
 
 const KNOWN_CODES: ReadonlySet<string> = new Set<string>([
   ...SHOP_ERROR_CODES,
+  ...ADMIN_ERROR_CODES,
   ERROR_CODE_NETWORK,
   ERROR_CODE_HTTP,
 ]);

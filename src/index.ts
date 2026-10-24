@@ -21,6 +21,7 @@ export {
 export {
   errorCodeOf,
   providerCodeOf,
+  type AdminErrorCode,
   type KnownErrorCode,
   type ShopErrorCode,
   type TransportErrorCode,
@@ -40,11 +41,14 @@ export {
   type AuthServiceOptions,
 } from './auth/AuthService';
 export { REFRESH_QUERY } from './auth/SessionRefresher';
+export { FingerprintRefreshStrategy } from './auth/FingerprintRefreshStrategy';
+export type { RefreshStrategy } from './auth/RefreshStrategy';
 export { isRejectedToken } from './auth/rejectedToken';
 export { decodeJwtPayload, isJwtExpired, type OxidJwtPayload } from './auth/jwt';
-export { TokenStorage } from './auth/TokenStorage';
+export { MemoryStorage, TokenStorage, type TokenStorageOptions } from './auth/TokenStorage';
 export { CoreEvents, EventBus, type EventHandler } from './events/EventBus';
 export { createAuthGuard } from './guards/authGuard';
+export { createRightsGuard } from './guards/rightsGuard';
 export {
   createProviderCheckoutApi,
   isPaymentPlugin,
@@ -62,9 +66,18 @@ export {
   type ReturnParams,
 } from './plugins/payment';
 export { PluginRegistry } from './plugins/PluginRegistry';
-export type { IPlugin, NavItem, OverrideSlot, PluginContext, ViewLoader } from './plugins/types';
-export { createAuthStore } from './stores/createAuthStore';
+export {
+  STOREFRONT_SLOTS,
+  type IPlugin,
+  type NavItem,
+  type OverrideSlot,
+  type PluginContext,
+  type StorefrontSlot,
+  type ViewLoader,
+} from './plugins/types';
+export { createAuthStore, type AuthStoreOptions } from './stores/createAuthStore';
 export { addressSchema, type AddressInput } from './validation/address';
+export { configureZodForCsp } from './validation/zodCsp';
 export { formatPrice } from './utils/price';
 export { applyTheme, clearTheme } from './theme/applyTheme';
 export { loadTheme, THEME_STYLESHEET_ID, type LoadThemeOptions } from './theme/loadTheme';
@@ -91,3 +104,10 @@ export {
   type LocaleSwitch,
   type LocaleSwitchSource,
 } from './i18n/localeSwitch';
+export {
+  createIdleTimer,
+  type IdleChannel,
+  type IdleEventTarget,
+  type IdleTimer,
+  type IdleTimerOptions,
+} from './session/idleTimer';

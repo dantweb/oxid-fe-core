@@ -9,6 +9,12 @@ export interface LoadThemeOptions {
   baseUrl?: string;
   fetchFn?: typeof fetch;
   document?: Document;
+  /**
+   * Custom-property prefixes a token name must start with; any other token is dropped before it is
+   * applied. Absent: every token is kept (the storefront trusts its own bundle). A host that serves
+   * themes it does not build, e.g. an instance overlay, passes its prefixes.
+   */
+  tokenPrefixes?: readonly string[];
   /** How long to wait for the stylesheet before continuing without it. */
   stylesheetTimeoutMs?: number;
 }
@@ -20,6 +26,7 @@ async function fetchConfig(
   id: string,
   baseUrl: string,
   fetchFn: typeof fetch,
+  tokenPrefixes?: readonly string[],
 ): Promise<ThemeConfig> {
   const response = await fetchFn(`${baseUrl}/${id}/config.json`, { cache: 'no-cache' });
   if (!response.ok) {
@@ -29,7 +36,16 @@ async function fetchConfig(
   if (config.id !== id) {
     throw new Error(`theme "${id}": config.json declares id "${config.id}"`);
   }
-  return config;
+  return tokenPrefixes ? { ...config, tokens: keepPrefixed(config.tokens, tokenPrefixes) } : config;
+}
+
+function keepPrefixed(
+  tokens: Record<string, string>,
+  prefixes: readonly string[],
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(tokens).filter(([name]) => prefixes.some((prefix) => name.startsWith(prefix))),
+  );
 }
 
 /** Walks `parent` links; tokens/images merge parent → child (child wins), like vbwd child themes. */
@@ -37,6 +53,7 @@ async function resolveChain(
   id: string,
   baseUrl: string,
   fetchFn: typeof fetch,
+  tokenPrefixes?: readonly string[],
 ): Promise<{
   config: ThemeConfig;
   tokens: Record<string, string>;
@@ -48,7 +65,7 @@ async function resolveChain(
     if (chain.length >= MAX_PARENT_DEPTH || chain.some((entry) => entry.id === current)) {
       throw new Error(`theme "${id}": parent chain too deep or cyclic`);
     }
-    const config = await fetchConfig(current, baseUrl, fetchFn);
+    const config = await fetchConfig(current, baseUrl, fetchFn, tokenPrefixes);
     chain.push(config);
     current = config.parent;
   }
@@ -94,7 +111,12 @@ export async function loadTheme(options: LoadThemeOptions): Promise<ResolvedThem
     options.active === options.fallback ? [options.active] : [options.active, options.fallback];
   for (const id of candidates) {
     try {
-      const { config, tokens, images } = await resolveChain(id, baseUrl, fetchFn);
+      const { config, tokens, images } = await resolveChain(
+        id,
+        baseUrl,
+        fetchFn,
+        options.tokenPrefixes,
+      );
       const theme: ResolvedTheme = {
         id,
         name: config.name,

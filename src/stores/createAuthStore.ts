@@ -3,13 +3,24 @@ import { ref } from 'vue';
 import type { AuthService } from '../auth/AuthService';
 import { CoreEvents, type EventBus } from '../events/EventBus';
 
+const DEFAULT_STORE_ID = 'oxfe-auth';
+
+export interface AuthStoreOptions {
+  /** Pinia store id. Default `oxfe-auth`; give each store of a host (storefront, admin) its own. */
+  id?: string;
+}
+
 /**
  * Reactive mirror of the AuthService for templates. The service stays the
  * single owner of the token; the store only reflects it and re-syncs on
  * the core auth events.
  */
-export function createAuthStore(auth: AuthService, events: EventBus) {
-  return defineStore('oxfe-auth', () => {
+export function createAuthStore(
+  auth: AuthService,
+  events: EventBus,
+  { id = DEFAULT_STORE_ID }: AuthStoreOptions = {},
+) {
+  return defineStore(id, () => {
     const authenticated = ref(auth.isAuthenticated());
     const username = ref<string | null>(auth.payload()?.username ?? null);
 

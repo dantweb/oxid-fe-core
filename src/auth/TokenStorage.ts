@@ -1,5 +1,38 @@
-const TOKEN_KEY = 'oxfe.token';
-const REFRESH_TOKEN_KEY = 'oxfe.refresh';
+const DEFAULT_NAMESPACE = 'oxfe';
+
+export interface TokenStorageOptions {
+  /** Key prefix: tokens live under `<namespace>.token` / `<namespace>.refresh`. Default `oxfe`. */
+  namespace?: string;
+}
+
+/** A `Storage` that never leaves the page: for credentials that must not outlive it (an admin's access token). */
+export class MemoryStorage implements Storage {
+  private readonly items = new Map<string, string>();
+
+  get length(): number {
+    return this.items.size;
+  }
+
+  key(index: number): string | null {
+    return [...this.items.keys()][index] ?? null;
+  }
+
+  getItem(key: string): string | null {
+    return this.items.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.items.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.items.delete(key);
+  }
+
+  clear(): void {
+    this.items.clear();
+  }
+}
 
 /**
  * Holds the session credentials: the access token and, when the shop issued one, the refresh token.
@@ -9,35 +42,40 @@ const REFRESH_TOKEN_KEY = 'oxfe.refresh';
 export class TokenStorage {
   private readonly memory = new Map<string, string>();
   private readonly storage: Storage | null;
+  private readonly tokenKey: string;
+  private readonly refreshTokenKey: string;
 
-  constructor(storage?: Storage | null) {
+  constructor(storage?: Storage | null, options: TokenStorageOptions = {}) {
     this.storage = storage !== undefined ? storage : defaultStorage();
+    const namespace = options.namespace ?? DEFAULT_NAMESPACE;
+    this.tokenKey = `${namespace}.token`;
+    this.refreshTokenKey = `${namespace}.refresh`;
   }
 
   get(): string | null {
-    return this.read(TOKEN_KEY);
+    return this.read(this.tokenKey);
   }
 
   set(token: string): void {
-    this.write(TOKEN_KEY, token);
+    this.write(this.tokenKey, token);
   }
 
   getRefreshToken(): string | null {
-    return this.read(REFRESH_TOKEN_KEY);
+    return this.read(this.refreshTokenKey);
   }
 
   setRefreshToken(token: string): void {
-    this.write(REFRESH_TOKEN_KEY, token);
+    this.write(this.refreshTokenKey, token);
   }
 
   clearRefreshToken(): void {
-    this.remove(REFRESH_TOKEN_KEY);
+    this.remove(this.refreshTokenKey);
   }
 
   /** Ends the stored session: both tokens go. */
   clear(): void {
-    this.remove(TOKEN_KEY);
-    this.remove(REFRESH_TOKEN_KEY);
+    this.remove(this.tokenKey);
+    this.remove(this.refreshTokenKey);
   }
 
   private read(key: string): string | null {
