@@ -77,6 +77,7 @@ export {
 } from './plugins/types';
 export { createAuthStore, type AuthStoreOptions } from './stores/createAuthStore';
 export { addressSchema, type AddressInput } from './validation/address';
+export { configureZodForCsp } from './validation/zodCsp';
 export { formatPrice } from './utils/price';
 export { applyTheme, clearTheme } from './theme/applyTheme';
 export { loadTheme, THEME_STYLESHEET_ID, type LoadThemeOptions } from './theme/loadTheme';

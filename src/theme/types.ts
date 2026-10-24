@@ -10,9 +10,9 @@ export const themeConfigSchema = z.object({
   description: z.string().optional(),
   version: z.string().optional(),
   parent: z.string().min(1).nullable().optional(),
-  tokens: z.record(z.string()).default({}),
+  tokens: z.record(z.string(), z.string()).prefault({}),
   /** logical name → file inside the theme's images/ folder */
-  images: z.record(z.string()).default({}),
+  images: z.record(z.string(), z.string()).prefault({}),
 });
 
 export type ThemeConfig = z.infer<typeof themeConfigSchema>;

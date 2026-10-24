@@ -18,8 +18,25 @@ API (`graphql-base` + `graphql-storefront`) instead of REST.
 | `createAuthStore`                                                 | Pinia mirror of the auth state for templates                                                                                                                                                                                                                                                                                                              |
 | `styles/variables.css`, `applyTheme` / `clearTheme` / `loadTheme` | the `--oxfe-*` design-token contract and theme loading (parent chain, fallback to the default theme) — see oxid-fe-user `docs/theming.md`                                                                                                                                                                                                                 |
 | `@dantweb/oxid-fe-core/theme-tools` (Node, `oxfe-build-themes`)   | `buildThemes` / `validateThemeConfig` / `validateParentChains` / `stageThemeSources`: compile `<src>/<id>/{config.json, styles.less, images}` to `<out>/<id>/`; `tokenPrefixes` (default `--oxfe-`)                                                                                                                                                       |
-| `addressSchema` (zod), `formatPrice`                              | shared validation and formatting                                                                                                                                                                                                                                                                                                                          |
+| `addressSchema` (zod 4), `formatPrice`                            | shared validation and formatting                                                                                                                                                                                                                                                                                                                          |
 | `useLocaleSwitch` / `localeSwitchKey` / `languageName`            | the one way to change the storefront language: the host provides its locale ref + ordered locales, any switcher (host header, layout plugin) calls `switchTo`: the choice is kept under `LOCALE_STORAGE_KEY` and the page reloads, so shop content follows (like the shop's own language links); `languageName('de')` → "Deutsch" via `Intl.DisplayNames` |
+
+## zod 4 and Content-Security-Policy
+
+Core depends on zod 4. Zod 4 compiles object parsers with `new Function`, which a CSP without
+`'unsafe-eval'` (or with Trusted Types) refuses and reports. Core does not change zod's global config for
+you; under such a CSP call `configureZodForCsp()` as the **first import** of your entry point, before any
+schema is created:
+
+```ts
+// zodConfig.ts — the first import of main.ts
+import { configureZodForCsp } from '@dantweb/oxid-fe-core/zod-csp';
+configureZodForCsp();
+```
+
+Use the `/zod-csp` subpath, not the main entry: importing the main entry creates core's own schemas
+(`addressSchema`, the theme schema) before your call runs. The main entry re-exports `configureZodForCsp` too,
+for hosts that already import core in the right order.
 
 ## Language and shop ids
 

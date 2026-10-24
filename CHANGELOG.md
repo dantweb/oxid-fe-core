@@ -43,6 +43,19 @@ setTimer, clearTimer, channel, onWarn, onResume, onTimeout })` with `start` / `s
   are dropped before they are applied (for a host that serves themes it did not build). Without it the
   behaviour is unchanged.
 
+### Security (SEC-1)
+
+- **BREAKING: zod 4.** `zod` is now `^4.6.7` (was `^3.24.0`), patching GHSA-mrhx-c7xc-m3w5 (memory exhaustion
+  validating oversized constrained collections). Hosts that share zod with core (peer-deduped in vite) must
+  be on zod 4 too: `z.record(valueSchema)` becomes `z.record(keySchema, valueSchema)`, object defaults use
+  `.prefault({})`, and `z.ZodType<T, z.ZodTypeDef, unknown>` becomes `z.ZodType<T, unknown>`.
+- **`configureZodForCsp()`** (new export, also the subpath `@dantweb/oxid-fe-core/zod-csp`, which creates no schema): sets `z.config({ jitless: true })`. Zod 4 compiles object parsers
+  with `new Function`, which a CSP without 'unsafe-eval' or with Trusted Types refuses and reports. Core
+  never changes zod's global config itself; a host under such a CSP calls it as the first import of its entry
+  point (zod decides when a schema is created). A test proves core's schemas make no `new Function` call once
+  it ran.
+- happy-dom (dev dependency) `^21.0.4`, patching GHSA-834v-8h66-3h79.
+
 ### Changed
 
 - `PluginRegistry.overrideFor` / `IPlugin.overrides` are typed by the registry's slot parameter
