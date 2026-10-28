@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.0
+
+### Added
+
+- `step_up_password_required` in the admin error codes (`errorCodeOf`): the admin GraphQL module answers it
+  instead of `step_up_required` when it runs with the second factor disabled (`oeGqlAdminMfaDisabled`), and the
+  client steps up with the password.
+
 ## 0.11.0
 
 Sprint C01 — the generic seams a back-office (admin) app needs. Every seam is opt-in: with no new

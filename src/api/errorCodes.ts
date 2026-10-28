@@ -25,6 +25,7 @@ const ADMIN_ERROR_CODES = [
   'mfa_required',
   'mfa_invalid',
   'step_up_required',
+  'step_up_password_required',
   'permission_denied',
   'not_found',
   'validation_failed',
