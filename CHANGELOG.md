@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.13.0
+
+SEAL-1 — the browser side of the sealed channel (server module `oxid-sealed-channel`, envelope v2).
+
+### Added
+
+- `SealedChannel` (`src/sealing/sealedChannel.ts`, exported): `run(work)` opens the channel once per session
+  (`sealedChannelOpen`, ECDH P-256 key pair per channel, private key non-extractable and in memory only,
+  HKDF-SHA256 into one AES-256-GCM key per direction), serialises sealed requests so their counters arrive in order,
+  and re-opens once on `sealed_channel_expired`. `SealedRequest.seal(path, plaintext)` seals an argument,
+  `answerHeaders()` asks the shop for sealed answers (`X-Sealed-Channel`), `unseal(value, path)` opens a sealed answer
+  field. Known-answer vector shared with the PHP module: `tests/fixtures/sealed-channel-vector.json`.
+- `fetchSealedConfig` (envelope v1, payment client config) is unchanged.
+
 ## 0.12.0
 
 ### Added
