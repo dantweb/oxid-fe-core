@@ -91,6 +91,16 @@ export {
   type SealedValues,
 } from './payments/sealedConfig';
 export {
+  ERROR_CODE_CHANNEL_EXPIRED,
+  SEALED_CHANNEL_HEADER,
+  SealedChannel,
+  SealedChannelError,
+  SealedRequest,
+  type BrowserKeyPair as SealedChannelKeyPair,
+  type SealedChannelOptions,
+  type SealedValue,
+} from './sealing/sealedChannel';
+export {
   createSealedKeys,
   sealedKeysForPlugin,
   type SealedKeys,

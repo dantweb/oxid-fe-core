@@ -1,0 +1,51 @@
+{
+    "description": "Known-answer vector of the sealed channel, envelope v2 (throw-away keys). PHP produces it, the TypeScript client must open it and must derive the same keys.",
+    "version": 2,
+    "client": {
+        "jwk": {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": "QVS7P-1Mt9DYF3DN5hSlgo3q6uNYRVGO62RrUxu7gyo",
+            "y": "gr8_WWPXWAB4tmzt0fLl9pRmnN_O7sebEhMsJ1EFEFg",
+            "d": "IGd-Y2yH8Ln05yiH63K64DM_i9NEE0Yy21nQsuSEkp4"
+        },
+        "publicKeyRaw": "BEFUuz_tTLfQ2BdwzeYUpYKN6urjWEVRjutka1Mbu4Mqgr8_WWPXWAB4tmzt0fLl9pRmnN_O7sebEhMsJ1EFEFg"
+    },
+    "server": {
+        "privatePem": "-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg9Q3ZMw5/kFp4NL8q\nyxaiFP9nxYeSnFhPR0Qps6Uvd5ChRANCAAQR8qmJGr+9rJfwTYSkYuxUDgPgMxso\nlC5kisns8fI8jsGL19TS15bczhcuToXFyC5dZ07MzZn7wz75cmQn6QhM\n-----END PRIVATE KEY-----\n"
+    },
+    "handshake": {
+        "channelId": "EBESExQVFhcYGRobHB0eHw",
+        "serverPublicKey": "BBHyqYkav72sl_BNhKRi7FQOA-AzGyiULmSKyezx8jyOwYvX1NLXltzOFy5OhcXILl1nTszNmfvDPvlyZCfpCEw",
+        "salt": "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8",
+        "binding": "tok-0123456789",
+        "app": "admin"
+    },
+    "keys": {
+        "clientToServerHex": "ade5c75896434b5ab3b6e69bca11ef1956f977faf09c529dbe041a3c1f166f13",
+        "serverToClientHex": "b1107c12485103e07aa6d08bf14ab601a5268b6b01e64d53c80173f7115d85bf"
+    },
+    "request": {
+        "path": "adminLogin.password",
+        "plaintext": "correct horse battery staple ü",
+        "envelope": {
+            "v": 2,
+            "channelId": "EBESExQVFhcYGRobHB0eHw",
+            "counter": 1,
+            "iv": "gIGCg4SFhoeIiYqL",
+            "ct": "3_kZ23OYRfGFbvVjRXpjzLm8gCFUNnV0ylEos8LyEq5m0At-8usONTpy1QcOQ50"
+        }
+    },
+    "response": {
+        "path": "adminMfaEnrolStart.sealedSecret",
+        "requestCounter": 2,
+        "plaintext": "{\"secret\":\"JBSWY3DPEHPK3PXP\"}",
+        "envelope": {
+            "v": 2,
+            "channelId": "EBESExQVFhcYGRobHB0eHw",
+            "counter": 2,
+            "iv": "oKGio6Slpqeoqaqr",
+            "ct": "3WFFUk2REJQjWpPcbFVQtK4nmbDl5n_5fRzSsu_WZapelqgWfICsjMx7sLDa"
+        }
+    }
+}
