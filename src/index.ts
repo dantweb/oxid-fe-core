@@ -101,6 +101,15 @@ export {
   type SealedValue,
 } from './sealing/sealedChannel';
 export {
+  needsSealedAnswers,
+  openAnswers,
+  sealArguments,
+  SEALED_ENVELOPE,
+  type SealedArgument,
+  type SealedArguments,
+  type SealedRunner,
+} from './sealing/sealedTransport';
+export {
   createSealedKeys,
   sealedKeysForPlugin,
   type SealedKeys,

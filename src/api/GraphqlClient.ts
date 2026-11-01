@@ -7,6 +7,13 @@ import {
 import { isRejectedToken } from '../auth/rejectedToken';
 import { createAbortGuard, type AbortGuard } from './abortGuard';
 import { buildMultipartBody } from './multipart';
+import {
+  needsSealedAnswers,
+  openAnswers,
+  sealArguments,
+  type SealedArguments,
+  type SealedRunner,
+} from '../sealing/sealedTransport';
 import type { ResponseCache } from './ResponseCache';
 import { stableStringify } from './stableStringify';
 
@@ -52,6 +59,12 @@ export interface ExecuteOptions {
   timeoutMs?: number;
   /** Extra headers for this call only (e.g. `X-OXID-Admin`); they never replace the bearer token. */
   headers?: Record<string, string>;
+  /**
+   * Variables of this call that travel through the sealed channel (needs `setSealing`): each is replaced by its
+   * `SealedValueInput` under the variable the document declares. A document that selects a `sealed…` field gets a
+   * sealed answer without any option. See `sealing/sealedTransport`.
+   */
+  sealedArguments?: SealedArguments;
 }
 
 const MUTATION = /^\s*mutation\b/;
@@ -71,6 +84,7 @@ export class GraphqlClient {
   private endpointParamsProvider: EndpointParamsProvider = () => ({});
   private readonly responseInterceptors: ResponseInterceptor[] = [];
   private tokenRejectedHandler: TokenRejectedHandler | null = null;
+  private sealing: SealedRunner | null = null;
 
   constructor(options: GraphqlClientOptions) {
     this.url = options.url;
@@ -107,6 +121,15 @@ export class GraphqlClient {
     this.tokenRejectedHandler = handler;
   }
 
+  /**
+   * The sealed channel (SEAL-1). A call that names `sealedArguments`, or a document that selects a `sealed…` field, goes
+   * through it. Every attempt is sealed anew — a counter is good for one request, so a retry (rejected token, repeat
+   * after a step-up) must never reuse the seals of the first.
+   */
+  setSealing(sealing: SealedRunner): void {
+    this.sealing = sealing;
+  }
+
   /** Runs on every response body before errors are thrown (e.g. session-expiry detection). */
   addResponseInterceptor(interceptor: ResponseInterceptor): void {
     this.responseInterceptors.push(interceptor);
@@ -127,7 +150,7 @@ export class GraphqlClient {
       this.cache?.clear();
       return data;
     }
-    if (cacheTtlMs === undefined || !this.cache) {
+    if (cacheTtlMs === undefined || !this.cache || needsSealedAnswers(query)) {
       return this.sendGuarded<TData>(query, variables, options, true);
     }
     return this.cache.remember(this.cacheKey(query, variables, options.headers), cacheTtlMs, () =>
@@ -173,7 +196,48 @@ export class GraphqlClient {
     ].join('\n');
   }
 
-  private async send<TData>(
+  private send<TData>(
+    query: string,
+    variables: Record<string, unknown> | undefined,
+    options: ExecuteOptions,
+    omitToken: boolean,
+  ): Promise<TData> {
+    if (this.sealing && (options.sealedArguments || needsSealedAnswers(query))) {
+      return this.sendSealed<TData>(this.sealing, query, variables, options, omitToken);
+    }
+    return this.sendPlain<TData>(query, variables, options, omitToken);
+  }
+
+  /** One attempt through the sealed channel: arguments sealed, a sealed answer asked for and opened. */
+  private sendSealed<TData>(
+    sealing: SealedRunner,
+    query: string,
+    variables: Record<string, unknown> | undefined,
+    options: ExecuteOptions,
+    omitToken: boolean,
+  ): Promise<TData> {
+    const { sealedArguments, ...callOptions } = options;
+    const wantsAnswers = needsSealedAnswers(query);
+    return sealing.run(async (request) => {
+      const sealed = sealedArguments
+        ? await sealArguments(request, variables ?? {}, sealedArguments)
+        : variables;
+      const data = await this.sendPlain<TData>(
+        query,
+        sealed,
+        wantsAnswers
+          ? { ...callOptions, headers: { ...callOptions.headers, ...request.answerHeaders() } }
+          : callOptions,
+        omitToken,
+      );
+      if (wantsAnswers) {
+        await openAnswers(request, data);
+      }
+      return data;
+    });
+  }
+
+  private async sendPlain<TData>(
     query: string,
     variables: Record<string, unknown> | undefined,
     options: ExecuteOptions,

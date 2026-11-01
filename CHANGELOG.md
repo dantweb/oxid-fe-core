@@ -12,6 +12,10 @@ SEAL-1 — the browser side of the sealed channel (server module `oxid-sealed-ch
   and re-opens once on `sealed_channel_expired`. `SealedRequest.seal(path, plaintext)` seals an argument,
   `answerHeaders()` asks the shop for sealed answers (`X-Sealed-Channel`), `unseal(value, path)` opens a sealed answer
   field. Known-answer vector shared with the PHP module: `tests/fixtures/sealed-channel-vector.json`.
+- `GraphqlClient.setSealing(channel)` and the call option `sealedArguments`: a call that names variables to seal, or a
+  document that selects a `sealed…` twin field (`sealedPii`, `sealedAddress`, `sealedUrl`, …), goes through the sealed
+  channel. Every attempt is sealed anew (a retry after a rejected token never reuses a counter); sealed answers are
+  opened and put back under the plain field names, and are never served from or kept in the response cache.
 - `fetchSealedConfig` (envelope v1, payment client config) is unchanged.
 
 ## 0.12.0
