@@ -36,6 +36,8 @@ export {
 export {
   AuthService,
   LOGIN_QUERY,
+  SEALED_LOGIN_MUTATION,
+  SEALED_TOKEN_MUTATION,
   TOKEN_DELETE_MUTATION,
   TOKEN_QUERY,
   type AuthServiceOptions,
