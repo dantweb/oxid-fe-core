@@ -1,4 +1,4 @@
-import type { GraphqlClient } from '../api/GraphqlClient';
+import type { ExecuteOptions, GraphqlClient } from '../api/GraphqlClient';
 import { CoreEvents, type EventBus } from '../events/EventBus';
 import { decodeJwtPayload, isJwtExpired, type OxidJwtPayload } from './jwt';
 import { GraphqlError } from '../api/GraphqlError';
@@ -31,6 +31,26 @@ export const LOGIN_QUERY = /* GraphQL */ `
   }
 `;
 
+/**
+ * SEAL-1 (oxid-sealed-channel): the same two documents with the password sealed. A mutation, because a sealed value is
+ * good for one request and so must never be a cacheable GET. Used with `AuthServiceOptions.sealedLogin`; the client
+ * needs `setSealing`.
+ */
+export const SEALED_LOGIN_MUTATION = /* GraphQL */ `
+  mutation sealedLogin($username: String!, $password: SealedValueInput!) {
+    sealedLogin(username: $username, password: $password) {
+      accessToken
+      refreshToken
+    }
+  }
+`;
+
+export const SEALED_TOKEN_MUTATION = /* GraphQL */ `
+  mutation sealedToken($username: String!, $password: SealedValueInput!) {
+    sealedToken(username: $username, password: $password)
+  }
+`;
+
 /** graphql-base: revokes one token by the `tokenid` claim; needs the token's own bearer. */
 export const TOKEN_DELETE_MUTATION = /* GraphQL */ `
   mutation tokenDelete($tokenId: ID!) {
@@ -55,6 +75,13 @@ export interface AuthServiceOptions {
    * and the token's fingerprint claim. A host with another scheme (a session cookie) injects its own.
    */
   refreshStrategy?: RefreshStrategy;
+  /**
+   * Log in with the password sealed (`sealedLogin` / `sealedToken` of the oxid-sealed-channel module) instead of the
+   * plain `login` / `token` queries. Needs `client.setSealing(...)`. Default `false`: a shop without the module keeps
+   * working. There is no fallback to the plain queries: a TLS-terminating intermediary that blocked the handshake would
+   * otherwise get the password in the clear.
+   */
+  sealedLogin?: boolean;
 }
 
 interface LoginTokens {
@@ -76,6 +103,7 @@ export class AuthService {
   private readonly refresher: SessionRefresher;
   private refreshFlowAvailable: boolean;
   private readonly anonymousFallback: boolean;
+  private readonly sealedLogin: boolean;
 
   constructor(
     private readonly client: GraphqlClient,
@@ -85,6 +113,7 @@ export class AuthService {
   ) {
     this.refreshFlowAvailable = options.refreshFlow ?? true;
     this.anonymousFallback = options.anonymousFallback ?? true;
+    this.sealedLogin = options.sealedLogin ?? false;
     this.refresher = new SessionRefresher(
       options.refreshStrategy ?? new FingerprintRefreshStrategy(client, storage),
       storage,
@@ -212,11 +241,14 @@ export class AuthService {
   ): Promise<LoginTokens | null> {
     try {
       const data = await this.client.execute<{ login?: Partial<LoginTokens> }>(
-        LOGIN_QUERY,
+        this.sealedLogin ? SEALED_LOGIN_MUTATION : LOGIN_QUERY,
         { username, password },
-        { omitToken: true },
+        this.sealedLogin ? sealedPassword('sealedLogin') : { omitToken: true },
       );
-      const { accessToken, refreshToken } = data.login ?? {};
+      const login = this.sealedLogin
+        ? (data as { sealedLogin?: Partial<LoginTokens> }).sealedLogin
+        : data.login;
+      const { accessToken, refreshToken } = login ?? {};
       return accessToken && refreshToken ? { accessToken, refreshToken } : null;
     } catch (error) {
       if (!isLoginUnavailable(error)) {
@@ -228,12 +260,12 @@ export class AuthService {
 
   private async loginWithToken(username: string, password: string): Promise<void> {
     // no token goes with the token query: a stale one would be refused before the login is read
-    const data = await this.client.execute<{ token: string }>(
-      TOKEN_QUERY,
+    const data = await this.client.execute<{ token?: string; sealedToken?: string }>(
+      this.sealedLogin ? SEALED_TOKEN_MUTATION : TOKEN_QUERY,
       { username, password },
-      { omitToken: true },
+      this.sealedLogin ? sealedPassword('sealedToken') : { omitToken: true },
     );
-    this.adoptToken(data.token);
+    this.adoptToken((this.sealedLogin ? data.sealedToken : data.token) as string);
     // only now is it known that the credentials were fine and `login` is what the shop refuses
     this.refreshFlowAvailable = false;
   }
@@ -273,6 +305,14 @@ export class AuthService {
     this.clearSession();
     this.events.emit(CoreEvents.SessionExpired);
   }
+}
+
+/** No token goes with a login call (a stale one would be refused first); the password is the sealed variable. */
+function sealedPassword(operation: string): ExecuteOptions {
+  return {
+    omitToken: true,
+    sealedArguments: { password: { path: `${operation}.password`, into: 'password' } },
+  };
 }
 
 /** A wrong password is a verdict and a dead network is not a missing feature; anything else is "no `login` here". */

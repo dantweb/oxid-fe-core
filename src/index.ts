@@ -36,6 +36,8 @@ export {
 export {
   AuthService,
   LOGIN_QUERY,
+  SEALED_LOGIN_MUTATION,
+  SEALED_TOKEN_MUTATION,
   TOKEN_DELETE_MUTATION,
   TOKEN_QUERY,
   type AuthServiceOptions,
@@ -90,6 +92,25 @@ export {
   type SealedConfigOptions,
   type SealedValues,
 } from './payments/sealedConfig';
+export {
+  ERROR_CODE_CHANNEL_EXPIRED,
+  SEALED_CHANNEL_HEADER,
+  SealedChannel,
+  SealedChannelError,
+  SealedRequest,
+  type BrowserKeyPair as SealedChannelKeyPair,
+  type SealedChannelOptions,
+  type SealedValue,
+} from './sealing/sealedChannel';
+export {
+  needsSealedAnswers,
+  openAnswers,
+  sealArguments,
+  SEALED_ENVELOPE,
+  type SealedArgument,
+  type SealedArguments,
+  type SealedRunner,
+} from './sealing/sealedTransport';
 export {
   createSealedKeys,
   sealedKeysForPlugin,
