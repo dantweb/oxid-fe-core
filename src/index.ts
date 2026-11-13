@@ -69,6 +69,14 @@ export {
 } from './plugins/payment';
 export { PluginRegistry } from './plugins/PluginRegistry';
 export {
+  enabledPluginNames,
+  isPluginEnabled,
+  selectPlugins,
+  type PluginGate,
+  type PluginSelection,
+  type PluginSwitches,
+} from './plugins/pluginSwitch';
+export {
   STOREFRONT_SLOTS,
   type IPlugin,
   type NavItem,

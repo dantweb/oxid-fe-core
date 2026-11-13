@@ -13,6 +13,7 @@ API (`graphql-base` + `graphql-storefront`) instead of REST.
 | `AuthService` / `TokenStorage` / jwt                              | graphql-base token lifecycle: login, **anonymous guest tokens**, expiry, logout that revokes the token, refresh tokens with silent renewal                                                                                                                                                                                                                |
 | `isRejectedToken` / `onTokenRejected`                             | the shop checks the bearer token before it reads the query. When it refuses one, `AuthService` drops it (`SessionExpired` for a customer), a **query** is retried once without a token, a mutation is never replayed; `execute(…, { omitToken: true })` is used for `token` calls so a stale token cannot block a login                                   |
 | `PluginRegistry` / `IPlugin`                                      | plugins contribute routes, nav items, i18n messages, config and a `setup()` — the host applies them                                                                                                                                                                                                                                                       |
+| `selectPlugins` / `enabledPluginNames` / `isPluginEnabled`        | switching plugins on and off per instance, the same in every frontend: a list or a `{ name: { enabled } }` map → the plugins that run (plus the host's gate: backend module, right) and the switched-on names no plugin carries — see [Switching plugins on and off](#switching-plugins-on-and-off)                                                       |
 | `EventBus` / `CoreEvents`                                         | decoupled host ↔ plugin communication (`auth:login`, `auth:logout`, `auth:session-expired`)                                                                                                                                                                                                                                                               |
 | `createAuthGuard`                                                 | vue-router guard for `meta.requiresAuth` routes                                                                                                                                                                                                                                                                                                           |
 | `createAuthStore`                                                 | Pinia mirror of the auth state for templates                                                                                                                                                                                                                                                                                                              |
@@ -145,6 +146,29 @@ The idle timer judges deadlines by the clock, not the timer callback, so a sleep
 throttled tab still times out on time. Once the warning is out, only `reset()` or activity in another
 tab takes it back — a twitching mouse does not. A `timeoutMs` expiry surfaces as a `network_error`
 GraphqlError; the caller's own abort is rethrown as the runtime's `AbortError`.
+
+## Switching plugins on and off
+
+Which plugins run is instance configuration, not code. The build carries a set of plugins; each instance switches some
+of them on. The core reads both shapes the frontends use:
+
+```ts
+import { selectPlugins, type PluginSwitches } from '@dantweb/oxid-fe-core';
+
+// oxid-fe-admin: admin.plugins_enabled
+const list: PluginSwitches = ['payment-base', 'analytics', 'admin-assistant'];
+// oxid-fe-user: plugins (enabled defaults to true)
+const map: PluginSwitches = { cms: {}, reviews: { enabled: false } };
+
+const { active, unknown } = selectPlugins(builtPlugins, list, (plugin) => moduleIsActive(plugin));
+for (const plugin of active) registry.register(plugin); // build order is kept: `requires` comes first
+report(unknown); // switched on, but no plugin of this build has that name (typo, renamed id)
+```
+
+- **Off** means the plugin contributes nothing: no routes, navigation, slots, messages or `setup()`.
+- The optional **gate** is the host's runtime condition on top of the switch, e.g. the backing shop module is active
+  or the user holds a right. Without a gate, switched on is enough.
+- `enabledPluginNames(switches)` and `isPluginEnabled(name, switches)` answer the switch alone.
 
 ## Development
 
